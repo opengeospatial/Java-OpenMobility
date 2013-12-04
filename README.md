@@ -11,4 +11,6 @@ The GeoPackage source cannot be used stand-alone; You will require the <a href="
 
 Note that the Android project includes a re-compiled version of JTS as we found issues running the original .jar on Android - no other changes have been made. The geoapi-pending-3.1-M04.jar is also included within the /libs directory.
 <p>
-Note that this is still a work in progress!
+Note that this is still a work in progress and subject to quite a bit of change!
+
+Some classes are directly copied from and/ or based upon <a href="http://geotools.org">GeoTools</a>. We neither take or imply any credit for their excellent work.
