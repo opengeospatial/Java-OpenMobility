@@ -1,0 +1,188 @@
+/*
+ * Copyright 2013, Augmented Technologies Ltd.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+package com.augtech.geoapi.geopackage.table;
+
+import java.util.Date;
+import java.util.logging.Level;
+
+import org.opengis.geometry.BoundingBox;
+
+import com.augtech.geoapi.geometry.BoundingBoxImpl;
+import com.augtech.geoapi.geopackage.DateUtil;
+import com.augtech.geoapi.geopackage.GeoPackage;
+import com.augtech.geoapi.geopackage.GpkgRecords;
+import com.augtech.geoapi.geopackage.GpkgTable;
+import com.augtech.geoapi.referncing.CoordinateReferenceSystemImpl;
+
+
+public class TilesTable extends GpkgTable {
+	GeoPackage geoPackage = null;
+
+	/**
+	 * 
+	 * @param geoPackage
+	 * @param tableName
+	 */
+	public TilesTable(GeoPackage geoPackage, String tableName) {
+		super(tableName.replace(" ", "_"), null, null);
+		super.tableType = GpkgTable.TABLE_TYPE_TILES;
+		this.geoPackage = geoPackage;
+	}
+
+	/** Create a new user Tiles table in the GeoPackage suitable for 'Slippy' map tiles
+	 * (aka those used by Google, Bing, Yahoo, OpenStreetMap etc)
+	 * 
+	 * @param tilePixelsXY The size (in pixels) of the images to be stored
+	 * @return True if the tiles table, and associated meta-data tables, are created successfully. False if not.
+	 * @throws Exception
+	 * @see {@link #create(BoundingBox, int, int, double, double)}
+	 * 
+	 */
+	public boolean create(int tilePixelsXY) throws Exception {
+
+		BoundingBox bbox = new BoundingBoxImpl(-20037508.34, 20037508.34, -20037508.34, 20037508.34,
+				new CoordinateReferenceSystemImpl("3857"));
+
+		return create(bbox, 18, tilePixelsXY, 0.597165, 0.597165);
+		
+	}
+	/** Create a new user Tiles table in the GeoPackage. Note that the definition parameters
+	 * are for the total area/ size etc that the tiles <i>could</i> cover, not the area/ size that
+	 * the data <i>will</i> cover.
+	 * 
+	 * @param bbox The {@linkplain BoundingBox} for the total region these tiles <i>can</i> cover.
+	 * @param maxZoom The maximum (furthers inward) zoom level (usually 18)
+	 * @param tilePixelsXY The size (in pixels) of the images to be stored
+	 * @param pixelDistAtMaxZoomX The real-world X/Width distance in terrain units (in the correct spatial reference system for 
+	 * the data) for one pixel at the most detailed zoom level.
+	 * @param pixelDistAtMaxZoomY The real-world Y/Height distance in terrain units (in the correct spatial reference system for 
+	 * the data) for one pixel at the most detailed zoom level.
+	 * 
+	 * @return True if the tiles table, and associated meta-data tables, are created successfully. False if not.
+	 * @throws Exception
+	 * @see {@link #create(int)}
+	 */
+	public boolean create(BoundingBox bbox, int maxZoom, int tilePixelsXY, double pixelDistAtMaxZoomX, double pixelDistAtMaxZoomY) 
+			throws Exception {
+	
+		if (isTableInGpkg(geoPackage)) {
+			geoPackage.log.log(Level.WARNING, "Table "+tableName+" already defined in "+GpkgContents.TABLE_NAME);
+			return true;
+		}
+
+		// Doesn't exist in Contents, but does in DB, therefore not valid and drop
+		if (isTableInDB(geoPackage)) {
+			geoPackage.log.log(Level.INFO, "Replacing table "+tableName);
+			geoPackage.getDatabase().execSQL("DROP table "+tableName);
+		}
+		
+		// Check SRS exists in gpkg_spatial_ref_sys table
+		int srsID = Integer.parseInt( bbox.getCoordinateReferenceSystem().getName().getCode() );
+
+		GpkgRecords records = geoPackage.getSystemTable(GpkgSpatialRefSys.TABLE_NAME)
+								.query(geoPackage, "srs_id="+srsID);
+
+		if (records.getFieldInt(0, "srs_id")!=srsID) 
+			throw new Exception("SRS "+srsID+" does not exist in the gpkg_spatial_ref_sys table");
+		
+		// Create this table
+		String tableDef = "CREATE TABLE "+tableName+" ("+
+					  "id INTEGER PRIMARY KEY AUTOINCREMENT, "+
+					  "zoom_level INTEGER NOT NULL, "+
+					  "tile_column INTEGER NOT NULL, "+
+					  "tile_row INTEGER NOT NULL, "+
+					  "tile_data BLOB NOT NULL, "+
+					  "UNIQUE (zoom_level, tile_column, tile_row))";
+		
+		// Contents entry
+		String contents = String.format("INSERT INTO %s (table_name, data_type, identifier, last_change, "+
+					"min_x, min_y, max_x, max_y, srs_id) VALUES ('%s', '%s', '%s', '%s', %s, %s, %s, %s, %s);", 
+					GpkgContents.TABLE_NAME,
+					tableName,
+					GpkgTable.TABLE_TYPE_TILES,
+					tableName,
+					DateUtil.serializeDateTime(System.currentTimeMillis(), true),
+					bbox.getMinX(),
+					bbox.getMinY(),
+					bbox.getMaxX(),
+					bbox.getMaxY(),
+					srsID );
+
+		
+		// tile_matrix_set entry
+		String tile_matrix_set = String.format("INSERT INTO %s (table_name, min_x, min_y, max_x, max_y, srs_id) "+
+				" VALUES ('%s', %s, %s, %s, %s, %s);", 
+				GpkgTileMatrixSet.TABLE_NAME,
+				tableName,
+				bbox.getMinX(),
+				bbox.getMinY(),
+				bbox.getMaxX(),
+				bbox.getMaxY(),
+				srsID );
+
+		String[] statements = new String[]{
+			tableDef,
+			contents,
+			tile_matrix_set
+		};
+		
+		// Insert the tile matrix
+		boolean success = geoPackage.getDatabase().execSQLWithRollback(statements);
+		boolean tmSuccess = false;
+		if (success) {
+			GpkgTileMatrix tm = new GpkgTileMatrix();
+			tmSuccess = tm.insertTimes2TileMatrix(geoPackage, tableName, maxZoom, 
+					tilePixelsXY, pixelDistAtMaxZoomX, pixelDistAtMaxZoomY);
+		}
+		
+		// Read data back in case this object is stored.
+		super.getContents(geoPackage);
+		
+		return success && tmSuccess;
+	}
+
+	/**
+	 * @return the BoundingBox from GpkgContents
+	 */
+	@Override
+	public BoundingBox getBounds() {
+		if (super.getBounds().isEmpty()) {
+			try {
+				super.getContents(geoPackage);
+			} catch (Exception e) {
+				e.printStackTrace();
+			}
+		}
+
+		return super.getBounds();
+	}
+
+	/**
+	 * @return the lastChange
+	 */
+	@Override
+	public Date getLastChange() {
+		if (super.getLastChange()==null) {
+			try {
+				super.getContents(geoPackage);
+			} catch (Exception e) {
+				e.printStackTrace();
+			}
+		}
+		return super.getLastChange();
+	}
+	
+}
