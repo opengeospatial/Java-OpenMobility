@@ -10,7 +10,7 @@ This project includes an Android application for testing and demonstrational pur
 The GeoPackage source cannot be used stand-alone; You will require the Java Topology Suite 1.8 and GeoAPI (pending) version 3.0 or greater.
 Note that the Android project includes a re-compiled version of JTS as we found issues running the original .jar on Android - no other changes have been made. The geoapi-pending-3.1-M04.jar is also included within the /libs directory.
 
-JTS:				http://www.vividsolutions.com/jts/JTSHome.htm
+<a href="http://www.vividsolutions.com/jts/JTSHome.htm">Java Topology Suite</a><br>
 GeoAPI Pending:			http://maven.geotoolkit.org/org/opengis/geoapi-pending/
 AT GeoAPI Impl. Javadoc:	http://www.awila.co.uk/dev_doc/geoapi_doc/index.html
 
