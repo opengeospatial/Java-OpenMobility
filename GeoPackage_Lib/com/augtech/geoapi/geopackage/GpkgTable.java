@@ -25,8 +25,10 @@ import org.opengis.geometry.BoundingBox;
 
 import com.augtech.geoapi.geometry.BoundingBoxImpl;
 import com.augtech.geoapi.geopackage.table.FeatureField;
-import com.augtech.geoapi.geopackage.table.FeatureTable;
+import com.augtech.geoapi.geopackage.table.FeaturesTable;
 import com.augtech.geoapi.geopackage.table.GpkgContents;
+import com.augtech.geoapi.geopackage.table.GpkgDataColumnConstraint;
+import com.augtech.geoapi.geopackage.table.TilesTable;
 import com.augtech.geoapi.referncing.CoordinateReferenceSystemImpl;
 
 /** An abstract class to create, query and update a table within the GeoPackage.
@@ -61,14 +63,20 @@ public abstract class GpkgTable {
 	private Date lastChange = null;
 	private BoundingBox bbox = new BoundingBoxImpl("EPSG:4326");
 	
-	/**
+	/** Create a new instance of a GpkgTable (this will not create the table in 
+	 * the GeoPackage, only a class for handling a table).
 	 * 
-	 * @param tableName
-	 * @param fields
-	 * @param tableConstraints
+	 * @param tableName The name of the table. Spaces will be replaced with '_'
+	 * @param fields An array of fields that can be referenced. If <code>Null</code>
+	 * then the fields will not be available immediately. One of the query methods will populate
+	 * the field data. <code>Null</code> Is typically used when creating a {@linkplain FeaturesTable} or 
+	 * {@link TilesTable}.
+	 * @param tableConstraints Any constraints that apply to the passed fields. These are SQL constraints, 
+	 * <i>not</i> {@linkplain GpkgDataColumnConstraint}'s.
+	 * @see #create(GeoPackage)
 	 */
 	public GpkgTable(String tableName, GpkgField[] fields, String[] tableConstraints) {
-		this.tableName = tableName;
+		this.tableName = tableName.replace(" ","_");
 		this.constraints = tableConstraints;
 		
 		if (fields==null) return;// Feature tables may not have fields at initialisation
@@ -83,7 +91,7 @@ public abstract class GpkgTable {
 	 * 
 	 * @return True if created, False if it already exists or it is either
 	 * a FeaturesTable or TilesTable
-	 * @see {@linkplain FeatureTable#create(GeoPackage)}
+	 * @see {@linkplain FeaturesTable#create(GeoPackage)}
 	 */
 	protected boolean create(GeoPackage geoPackage) {
 
@@ -93,10 +101,10 @@ public abstract class GpkgTable {
 		
 		sb.setLength(0);
 		
-		sb.append("Create TABLE ").append(tableName).append(" (");
+		sb.append("Create TABLE [").append(tableName).append("] (");
 
 		for (GpkgField f : fields.values()) {
-			sb.append(f.getFieldName()).append(" ").append(f.getFieldType());
+			sb.append("[").append(f.getFieldName()).append("] ").append(f.getFieldType());
 			
 			if (f.getFieldOptions()!=null && !f.getFieldOptions().equals("")) {
 				sb.append(" ").append(f.getFieldOptions());
@@ -154,7 +162,7 @@ public abstract class GpkgTable {
 				 * GpkgDataColumns, therefore to save extensive casting/ testing when processing a 
 				 * FeatureTable we create a FeatureField here instead. */
 				GpkgField gf = null;
-				if (this instanceof FeatureTable) {
+				if (this instanceof FeaturesTable) {
 					gf = new FeatureField(fieldName, columnCursor.getString(columnCursor.getColumnIndex("type")) );
 				} else {
 					gf = new GpkgField(fieldName, columnCursor.getString(columnCursor.getColumnIndex("type")) );
@@ -210,7 +218,7 @@ public abstract class GpkgTable {
 	public int getCount(GeoPackage geoPackage) {
 		if (isTableInDB(geoPackage)==false) return -1;
 		
-		ICursor c = geoPackage.getDatabase().doRawQuery("Select count(*) from "+tableName);
+		ICursor c = geoPackage.getDatabase().doRawQuery("Select count(*) from ["+tableName+"]");
 		if (c==null || !c.moveToFirst()) {
 			try {
 				c.close();
@@ -229,7 +237,7 @@ public abstract class GpkgTable {
 	 * @return
 	 */
 	public long insert(GeoPackage geoPackage, Map<String, Object> values) {
-		return geoPackage.getDatabase().doInsert(tableName, values);
+		return geoPackage.getDatabase().doInsert("["+tableName+"]", values);
 	}
 	/** Issue a raw query on this table for a {@linkplain ICursor}
 	 * 
@@ -241,7 +249,7 @@ public abstract class GpkgTable {
 	 */
 	public ICursor query(GeoPackage geoPackage, String[] columns, String strWhere) {
 		
-		return geoPackage.getDatabase().doQuery(tableName, null, strWhere);
+		return geoPackage.getDatabase().doQuery("["+tableName+"]", null, strWhere);
 		
 	}
 	/** Get a list of GpkgRecords from this table matching the where clause. It
@@ -402,7 +410,7 @@ public abstract class GpkgTable {
 	 * @return The number of records updated.
 	 */
 	public int update(GeoPackage geoPackage, Map<String, Object> values, String strWhere) {
-		return geoPackage.getDatabase().doUpdate(tableName, values, strWhere);
+		return geoPackage.getDatabase().doUpdate("["+tableName+"]", values, strWhere);
 	}
 	/** Delete a record from this table
 	 * 
@@ -411,7 +419,7 @@ public abstract class GpkgTable {
 	 * @return The number of rows affected if a where clause is passed in, 0 otherwise
 	 */
 	public int delete(GeoPackage geoPackage, String strWhere) {
-		return geoPackage.getDatabase().doDelete(tableName, strWhere);
+		return geoPackage.getDatabase().doDelete("["+tableName+"]", strWhere);
 	}
 	/** Get the Identifier from gpkg_contents
 	 * This will not be populated on non-system tables until 

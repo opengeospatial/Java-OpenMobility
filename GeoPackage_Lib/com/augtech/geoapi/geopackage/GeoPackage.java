@@ -50,8 +50,8 @@ import com.augtech.geoapi.feature.type.GeometryTypeImpl;
 import com.augtech.geoapi.feature.type.SimpleFeatureTypeImpl;
 import com.augtech.geoapi.geometry.BoundingBoxImpl;
 import com.augtech.geoapi.geopackage.table.FeatureField;
-import com.augtech.geoapi.geopackage.table.FeatureTable;
-import com.augtech.geoapi.geopackage.table.FeatureTable.GeometryInfo;
+import com.augtech.geoapi.geopackage.table.FeaturesTable;
+import com.augtech.geoapi.geopackage.table.FeaturesTable.GeometryInfo;
 import com.augtech.geoapi.geopackage.table.GpkgContents;
 import com.augtech.geoapi.geopackage.table.GpkgDataColumnConstraint;
 import com.augtech.geoapi.geopackage.table.GpkgDataColumnConstraint.DataColumnConstraint;
@@ -513,7 +513,7 @@ public class GeoPackage {
 
 		// Is table cached?
 		if (lastFeatTable==null || lastFeatTable.getTableName().equals(tableName)==false) {
-			lastFeatTable = new FeatureTable(this, tableName);
+			lastFeatTable = new FeaturesTable(this, tableName);
 			if (lastFeatTable.isTableInGpkg(this)==false) return allFeats;
 		}
 		
@@ -538,7 +538,7 @@ public class GeoPackage {
 		// Query only for feature geometry and test that before getting all attributes
 		ICursor allCur = lastFeatTable.query(
 				this, 
-				new String[]{"id", ((FeatureTable)lastFeatTable).getGeometryInfo().getColumnName()}, 
+				new String[]{"id", ((FeaturesTable)lastFeatTable).getGeometryInfo().getColumnName()}, 
 				null);
 		if (allCur==null) return allFeats;
 		
@@ -593,7 +593,7 @@ public class GeoPackage {
 		
 		// Is table cached?
 		if (lastFeatTable==null || lastFeatTable.getTableName().equals(tableName)==false) {
-			lastFeatTable = new FeatureTable(this, tableName);
+			lastFeatTable = new FeaturesTable(this, tableName);
 			if (lastFeatTable.isTableInGpkg(this)==false) return allFeats;
 		}
 		
@@ -601,7 +601,7 @@ public class GeoPackage {
 		GpkgRecords featRecords = lastFeatTable.query(this, whereClause);
 		if (featRecords.size()==0) return allFeats;
 
-		GeometryInfo geomInfo = ((FeatureTable)lastFeatTable).getGeometryInfo();
+		GeometryInfo geomInfo = ((FeaturesTable)lastFeatTable).getGeometryInfo();
 		
 		// Currently we only support EPSG definitions, but may have to change...
 		if (!geomInfo.getOrganization().toLowerCase().equals("epsg"))
@@ -736,7 +736,7 @@ public class GeoPackage {
 		while(tables.moveToNext()) {
 			
 			if (tableType.equals(GpkgTable.TABLE_TYPE_FEATURES)) {
-				tab = new FeatureTable(this, tables.getString(0));
+				tab = new FeaturesTable(this, tables.getString(0));
 			} else {
 				tab = new TilesTable(this, tables.getString(0));
 			}
@@ -782,7 +782,7 @@ public class GeoPackage {
 	 * be decoded.
 	 */
 	public long insertTile(SimpleFeature feature) throws Exception {
-		String tableName = feature.getType().getName().getLocalPart().replace(" ", "_");
+		String tableName = feature.getType().getName().getLocalPart();
 		
 		byte[] tileData = null;
 		// Cycle feature attrs to get the image data (assumes first byte[] is image)
@@ -811,7 +811,7 @@ public class GeoPackage {
 			throw new Exception("Could not decode tile reference from ID");
 		}
 		
-		return insertTile(tableName, tileData, x, y, z);
+		return insertTile(tableName.replace(" ", "_"), tileData, x, y, z);
 		
 	}
 	/** Insert a single raster tile into the GeoPackage
@@ -886,11 +886,11 @@ public class GeoPackage {
 	 */
 	public long insertFeature(SimpleFeature feature) throws Exception {
 		SimpleFeatureType type = feature.getType();
-		String tableName = type.getName().getLocalPart().replace(" ", "_");
+		String tableName = type.getName().getLocalPart();
 		
 		// Cache table as could be inserting 1000s features
-		if (lastFeatTable==null || !lastFeatTable.getTableName().equals(tableName)) {
-			lastFeatTable = new FeatureTable(this, tableName);
+		if (lastFeatTable==null || !lastFeatTable.getTableName().equals(tableName.replace(" ", "_"))) {
+			lastFeatTable = new FeaturesTable(this, tableName);
 		}
 
 		// Construct values

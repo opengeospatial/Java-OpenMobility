@@ -37,7 +37,7 @@ public class TilesTable extends GpkgTable {
 	 * @param tableName
 	 */
 	public TilesTable(GeoPackage geoPackage, String tableName) {
-		super(tableName.replace(" ", "_"), null, null);
+		super(tableName, null, null);
 		super.tableType = GpkgTable.TABLE_TYPE_TILES;
 		this.geoPackage = geoPackage;
 	}
@@ -86,7 +86,7 @@ public class TilesTable extends GpkgTable {
 		// Doesn't exist in Contents, but does in DB, therefore not valid and drop
 		if (isTableInDB(geoPackage)) {
 			geoPackage.log.log(Level.INFO, "Replacing table "+tableName);
-			geoPackage.getDatabase().execSQL("DROP table "+tableName);
+			geoPackage.getDatabase().execSQL("DROP table ["+tableName+"]");
 		}
 		
 		// Check SRS exists in gpkg_spatial_ref_sys table
@@ -99,7 +99,7 @@ public class TilesTable extends GpkgTable {
 			throw new Exception("SRS "+srsID+" does not exist in the gpkg_spatial_ref_sys table");
 		
 		// Create this table
-		String tableDef = "CREATE TABLE "+tableName+" ("+
+		String tableDef = "CREATE TABLE ["+tableName+"] ("+
 					  "id INTEGER PRIMARY KEY AUTOINCREMENT, "+
 					  "zoom_level INTEGER NOT NULL, "+
 					  "tile_column INTEGER NOT NULL, "+

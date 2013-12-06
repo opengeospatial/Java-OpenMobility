@@ -44,7 +44,7 @@ import com.augtech.geoapi.geopackage.table.GpkgDataColumnConstraint.DataColumnCo
  * 
  *
  */
-public class FeatureTable extends GpkgTable {
+public class FeaturesTable extends GpkgTable {
 	
 	/** The feature ID to use in the database and on this table */
 	String featureFieldID = GeoPackage.FEATURE_ID_FIELD_NAME;
@@ -60,7 +60,7 @@ public class FeatureTable extends GpkgTable {
 	 * @see {@link #getBounds()} or {@link #getFields()} or {@link #getGeometryInfo()} to populate from the
 	 * GeoPackage
 	 */
-	public FeatureTable(GeoPackage geoPackage, String tableName) {
+	public FeaturesTable(GeoPackage geoPackage, String tableName) {
 		this(geoPackage, tableName, GeoPackage.FEATURE_ID_FIELD_NAME);
 	}
 	/** Create a new FeaturesTable.<p>
@@ -75,8 +75,8 @@ public class FeatureTable extends GpkgTable {
 	 * @see {@link #getBounds()} or {@link #getFields()} or {@link #getGeometryInfo()} to populate from the
 	 * GeoPackage
 	 */
-	public FeatureTable(GeoPackage geoPackage, String tableName, String featureFieldID) {
-		super(tableName.replace(" ", "_"), null, null);
+	public FeaturesTable(GeoPackage geoPackage, String tableName, String featureFieldID) {
+		super(tableName, null, null);
 		super.tableType = GpkgTable.TABLE_TYPE_FEATURES;
 		this.geoPackage = geoPackage;
 		this.featureFieldID = featureFieldID;
@@ -122,7 +122,7 @@ public class FeatureTable extends GpkgTable {
 		// Doesn't exist in Contents, but does in DB, therefore not valid and drop
 		if (isTableInDB(geoPackage)) {
 			geoPackage.log.log(Level.INFO, "Replacing table "+tableName);
-			geoPackage.getDatabase().execSQL("DROP table "+tableName);
+			geoPackage.getDatabase().execSQL("DROP table ["+tableName+"]");
 		}
 		
 		String raw = null;
@@ -148,7 +148,7 @@ public class FeatureTable extends GpkgTable {
 		/* Always add a feature_id column to table and gpkg_data_columns
 		 * to enable WFS (and similar) IDs to be re-created when reading back 
 		 * out of the table */
-		String fields = ", "+featureFieldID+" TEXT";
+		String fields = ", ["+featureFieldID+"] TEXT";
 		dataColumnDefs.add(
 				"INSERT INTO gpkg_data_columns (table_name, column_name, name, title) "+
 				" VALUES ('"+tableName+"','"+featureFieldID+"','FeatureID', 'FeatureID');");
@@ -174,7 +174,7 @@ public class FeatureTable extends GpkgTable {
 			}
 			
 			// The insertion text
-			fields+=", "+atName.getLocalPart() + " " + geoPackage.encodeType( aType.getBinding() );
+			fields+=", ["+atName.getLocalPart() + "] " + geoPackage.encodeType( aType.getBinding() );
 			
 			// Data columns definitions...
 			//table_name, column_name, name, title, description, mime_type, constraint_name
@@ -201,9 +201,9 @@ public class FeatureTable extends GpkgTable {
 		description = description==null ? "" : description.toString();
 		
 		// Create table
-		String tableDef = "CREATE TABLE "+tableName+" ( "+
-			"id INTEGER PRIMARY KEY AUTOINCREMENT, "+
-			geomDescriptor.getLocalName() + " GEOMETRY"+
+		String tableDef = "CREATE TABLE ["+tableName+"] ( "+
+			"id INTEGER PRIMARY KEY AUTOINCREMENT, ["+
+			geomDescriptor.getLocalName() + "] GEOMETRY"+
 			fields +");";
 
 		// Geometry columns
