@@ -23,9 +23,6 @@ import java.util.Map;
 import org.opengis.feature.simple.SimpleFeature;
 import org.opengis.feature.simple.SimpleFeatureType;
 import org.opengis.feature.type.Name;
-import org.opengis.geometry.BoundingBox;
-
-import com.augtech.geoapi.geometry.BoundingBoxImpl;
 
 /** An abstract class for loading and creating {@link SimpleFeature} from local storage, once 
  * they have been downloaded from the server. This class processes saved data in to a 
@@ -39,7 +36,6 @@ import com.augtech.geoapi.geometry.BoundingBoxImpl;
 public abstract class FeatureLoader extends ArrayList<SimpleFeature> {
 	private static final long serialVersionUID = 4264941226040642321L;
 	protected Map<Name, SimpleFeatureType> definedFeatureTypes;
-	protected BoundingBox bounds = null;
 	protected String nextID = "";
 
 	/**
@@ -57,18 +53,6 @@ public abstract class FeatureLoader extends ArrayList<SimpleFeature> {
 	 */
 	public abstract int loadFeatures(InputStream inStream) throws Exception;
 
-	/** Set the bounds for the features
-	 * 
-	 * @param bounds {@link BoundingBox} If Null then the bounds are set
-	 * from the features current stored.
-	 */
-	public final void setBounds(BoundingBox bounds) {
-		if (bounds==null) {
-			getBounds();
-		} else {
-			this.bounds = bounds;
-		}
-	}
 	/** Get the {@link SimpleFeatureType}'s that were loaded
 	 * 
 	 * @return A Map of the loaded types, or null if nothing is/ was loaded
@@ -97,21 +81,7 @@ public abstract class FeatureLoader extends ArrayList<SimpleFeature> {
 		}
 		return null;
 	}
-	/** Calculate and return the bounds of all features in the collection.
-	 * 
-	 * @return A new ReferencedEnvelope in the dataset's coordinate system
-	 */
-	public final BoundingBox getBounds() {
-		//TODO Get correct CRS off of any Geometry
-		if (bounds==null) {
-			BoundingBox re = new BoundingBoxImpl("");
-			for (SimpleFeature f : this) {
-				re.include(f.getBounds());
-			}
-			bounds = re;
-		}
-		return bounds;
-	}
+
 	/** Does this feature loader require an ID to be set manually
 	 * when loading between tiles? For example, no unique feature ID is
 	 * provided as an output of the service. Use setInitialID() if required.
