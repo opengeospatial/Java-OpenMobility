@@ -32,7 +32,7 @@ import com.vividsolutions.jts.geom.Coordinate;
  *
  */
 public class OSMUtils {
-	
+	public static final double PIXEL_LENGTH_AT_ZOOM18 = 0.597165;
 	private static final double OSMOriginShift = 2 * Math.PI * 6378137 / 2.0;
 	public static final double WGS84_EQUATOR = 6378137.0;
 	/** Gets 9 tiles in OSM/ Google format centred on the xy location passed.

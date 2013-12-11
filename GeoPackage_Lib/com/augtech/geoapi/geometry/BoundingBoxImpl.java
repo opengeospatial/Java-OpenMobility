@@ -155,11 +155,12 @@ public class BoundingBoxImpl extends Envelope implements BoundingBox {
     			bbox.getMinY(),bbox.getMaxY()
     			));
     }
+
 	/**
      * Returns the native coordinate reference system associated with 
      * this envelope. (An EPSG:xxxx code)
      */
-    public String getCRS() {
+    public String getCRSName() {
         return CRS.getName().getCodeSpace()+":"+CRS.getName().getCode();
     }
     /** Set the {@link CoordinateReferenceSystem}

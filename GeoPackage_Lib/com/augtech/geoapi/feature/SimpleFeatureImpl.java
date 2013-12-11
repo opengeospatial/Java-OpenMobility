@@ -91,17 +91,17 @@ public class SimpleFeatureImpl implements SimpleFeature {
 		Object geom = getAttribute( geomName );
 		
 		if (geom==null) return null;
-		
-		String srs = featureType.getGeometryDescriptor().getCoordinateReferenceSystem().getName().getCode();
-		
+
 		if (geom instanceof Geometry) {
 			
-			Envelope env = ((Geometry) geom).getEnvelopeInternal();
-			return new BoundingBoxImpl(env, srs);
+			Geometry g = (Geometry) geom;
+			return new BoundingBoxImpl(g.getEnvelopeInternal(), g.getSRID()+"");
 			
 		} else if (geom instanceof Envelope) {
 			
-			return new BoundingBoxImpl((Envelope)geom, srs);
+			Envelope e = (Envelope)geom;
+			String srs = featureType.getGeometryDescriptor().getCoordinateReferenceSystem().getName().getCode();
+			return new BoundingBoxImpl(e, srs);
 			
 		} else if (geom instanceof BoundingBox) {
 			

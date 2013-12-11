@@ -128,10 +128,5 @@ public interface ICursor {
 	 * @return the names of the columns returned in this query. 
 	 */
 	public String[] getColumnNames();
-	/** Get the data type of the field type. If Null, a String.class is returned
-	 * 
-	 * @param columnIndex
-	 * @return
-	 */
-	public String getType(int columnIndex);
+
 }

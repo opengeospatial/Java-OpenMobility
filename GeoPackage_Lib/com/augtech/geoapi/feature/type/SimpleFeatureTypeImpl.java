@@ -113,6 +113,42 @@ public class SimpleFeatureTypeImpl implements SimpleFeatureType {
 	protected Map<Object, Object> userdata = new HashMap<Object, Object>();
 	private GeometryDescriptor defaultGeometry;
 	
+	/** A specific value stored in this type's 'user-data' */
+	public enum USER_DATA {
+		/** A description of this type */
+		DESCRIPTION,
+		/** The X (width) real-world size per pixel */
+		X_PIXEL_DIST_AT_MAX_ZOOM,
+		/** The Y (height) real-world size per pixel */
+		Y_PIXEL_DIST_AT_MAX_ZOOM,
+		/** RGBColor. Make a specified colour within the raster image transparent? 
+		 * Default is False */
+		COLOR_TRANSPARENT,
+		/** Boolean. Is this FeatureType currently visible. Default is False.
+		 * Will get set when this {@link ARFeatureType} is toggled on and off. */
+		VISIBLE,
+		/** Boolean. Can the user select this object for information display?.
+		 * Default is True */
+		SELECTABLE,
+		/** Boolean. Was the feature downloaded from the Internet. 
+		 * This value will get set when the feature is downloaded */
+		DOWNLOADED,
+		/** Boolean. An exclusive OR toggle meaning only one {@link ARFeatureType}
+		 *  can be visible at a time. Default is False */
+		BILLBOARD,
+		/** Boolean. An exclusive OR toggle meaning only one {@link ARFeatureType}
+		 *  can be visible at a time. Default is False */
+		EXCLUSIVE_TOGGLE,
+		/** Boolean. Allow additional information query? Default is True */
+		ADDITIONAL_INFO,
+		/** The first attribute name to apply a style against (if the value matches) */
+		STYLE_ATTR_1,
+		/** The second attribute name to apply a style against (if the value matches) */
+		STYLE_ATTR_2,
+		/** Any additional server url (specific to this feature type) to append to 
+		 * the root server url */
+		ADD_URL
+	};
 	/** No ID constructor
 	 * 
 	 * @param name The name of the FeatureType
@@ -234,13 +270,13 @@ public class SimpleFeatureTypeImpl implements SimpleFeatureType {
 	 * @param description
 	 */
 	public void setDescription(String description) {
-		userdata.put("Description", description);
+		userdata.put(USER_DATA.DESCRIPTION, description);
 	}
 	/** Returns an InternationalString made from the UserData 'Description' value
 	 */
 	@Override
 	public InternationalString getDescription() {
-		return new InternationalStringImpl( String.valueOf( userdata.get("Description") ) );
+		return new InternationalStringImpl( String.valueOf( userdata.get(USER_DATA.DESCRIPTION) ) );
 	}
 	@Override
 	public Name getName() {
@@ -301,11 +337,11 @@ public class SimpleFeatureTypeImpl implements SimpleFeatureType {
 
 	/** Add a specific user data setting
 	 * 
-	 * @param flag The FeatureTypeImp.USER_xxx type
+	 * @param setting The {@linkplain USER_DATA} enum setting
 	 * @param value The value
 	 */
-	public void setUserData(int flag, Object value) {
-		userdata.put(flag, value);
+	public void setUserData(Enum<USER_DATA> setting, Object value) {
+		userdata.put(setting, value);
 	}
 	/** Get the current attribute count.
 	 * 
@@ -442,7 +478,7 @@ public class SimpleFeatureTypeImpl implements SimpleFeatureType {
 	 * @param setting Which setting to check.
 	 * @return zero length string if not found
 	 */
-	public String getUserString(int setting) {
+	public String getUserString(Enum<USER_DATA> setting) {
 		Object ret = userdata.get(setting);
 		if (ret==null) return "";
 		if (ret instanceof String) {
@@ -456,7 +492,7 @@ public class SimpleFeatureTypeImpl implements SimpleFeatureType {
 	 * @param setting Which setting to check.
 	 * @return 0 if not found
 	 */
-	public Integer getUserInt(int setting) {
+	public Integer getUserInt(Enum<USER_DATA> setting) {
 		Object ret = userdata.get(setting);
 		if (ret==null) return 0;
 		if (ret instanceof Integer) {
@@ -470,7 +506,7 @@ public class SimpleFeatureTypeImpl implements SimpleFeatureType {
 	 * @param setting Which setting to check.
 	 * @return False if false or not found
 	 */
-	public boolean getUserBool(int setting) {
+	public boolean getUserBool(Enum<USER_DATA> setting) {
 		Object ret = userdata.get(setting);
 		if (ret==null) return false;
 		if (ret instanceof Boolean) {
@@ -484,7 +520,7 @@ public class SimpleFeatureTypeImpl implements SimpleFeatureType {
 	 * @param setting Which setting to check.
 	 * @return Double.NaN if not found
 	 */
-	public double getUserDouble(int setting) {
+	public double getUserDouble(Enum<USER_DATA> setting) {
 		Object ret = userdata.get(setting);
 		if (ret==null) return Double.NaN;
 		if (ret instanceof Double) {
