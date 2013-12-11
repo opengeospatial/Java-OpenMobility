@@ -76,6 +76,13 @@ public class GpkgField implements Cloneable {
 	public void addNote(String note) {
 		this.note = note;
 	}
+	/** Is this field the primary key?
+	 * 
+	 * @return
+	 */
+	public boolean isPrimaryKey() {
+		return this.primaryKey;
+	}
 	/** Set a value on this field definition. Does not set in the database.
 	 * 
 	 * @param value
@@ -173,6 +180,14 @@ public class GpkgField implements Cloneable {
 		} else if (!fieldType.equals(other.fieldType))
 			return false;
 		return true;
+	}
+	/* (non-Javadoc)
+	 * @see java.lang.Object#toString()
+	 */
+	@Override
+	public String toString() {
+		return String.format("GpkgField [fieldName=%s, fieldType=%s]",
+				fieldName, fieldType);
 	}
 	
 }

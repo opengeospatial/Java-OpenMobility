@@ -66,17 +66,18 @@ public abstract class GpkgTable {
 	/** Create a new instance of a GpkgTable (this will not create the table in 
 	 * the GeoPackage, only a class for handling a table).
 	 * 
-	 * @param tableName The name of the table. Spaces will be replaced with '_'
+	 * @param tableName The name of the table. Spaces will be replaced with '_' during query, insert,
+	 * update and delete operations
 	 * @param fields An array of fields that can be referenced. If <code>Null</code>
 	 * then the fields will not be available immediately. One of the query methods will populate
-	 * the field data. <code>Null</code> Is typically used when creating a {@linkplain FeaturesTable} or 
+	 * the field data. <code>Null</code> Is typically used when creating a {@linkplain FeatureTable} or 
 	 * {@link TilesTable}.
 	 * @param tableConstraints Any constraints that apply to the passed fields. These are SQL constraints, 
 	 * <i>not</i> {@linkplain GpkgDataColumnConstraint}'s.
 	 * @see #create(GeoPackage)
 	 */
 	public GpkgTable(String tableName, GpkgField[] fields, String[] tableConstraints) {
-		this.tableName = tableName.replace(" ","_");
+		this.tableName = tableName;
 		this.constraints = tableConstraints;
 		
 		if (fields==null) return;// Feature tables may not have fields at initialisation
@@ -91,7 +92,7 @@ public abstract class GpkgTable {
 	 * 
 	 * @return True if created, False if it already exists or it is either
 	 * a FeaturesTable or TilesTable
-	 * @see {@linkplain FeaturesTable#create(GeoPackage)}
+	 * @see {@linkplain FeatureTable#create(GeoPackage)}
 	 */
 	protected boolean create(GeoPackage geoPackage) {
 
@@ -201,7 +202,21 @@ public abstract class GpkgTable {
 			hasContentInfo = true;
 		}
 	}
-	
+	/** Get the defined primary key field name for this table
+	 * 
+	 * @param geoPackage
+	 * @return The name of the pk field or 'unknown' if not defined
+	 * @throws Exception
+	 */
+	public String getPrimaryKey(GeoPackage geoPackage) throws Exception {
+		getContents(geoPackage);
+		
+		for (GpkgField gf: this.fields.values()) {
+			if (gf.isPrimaryKey()) return gf.getFieldName();
+		}
+		
+		return "unknown";
+	}
 	/**Get the type of table; One of 
 	 * {@link #TABLE_TYPE_FEATURES}, {@link #TABLE_TYPE_TILES} or {@link #TABLE_TYPE_SYSTEM}
 	 * 

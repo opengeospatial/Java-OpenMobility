@@ -65,6 +65,7 @@ import com.augtech.geoapi.geopackage.table.GpkgTileMatrix;
 import com.augtech.geoapi.geopackage.table.GpkgTileMatrixSet;
 import com.augtech.geoapi.geopackage.table.GpkgTriggers;
 import com.augtech.geoapi.geopackage.table.TilesTable;
+import com.augtech.geoapi.geopackage.table.TilesTable.TileMatrixInfo;
 import com.augtech.geoapi.geopackage.views.GpkgView;
 import com.augtech.geoapi.geopackage.views.STGeometryColumns;
 import com.augtech.geoapi.geopackage.views.STSpatialRefSys;
@@ -184,7 +185,13 @@ public class GeoPackage {
 		
 		log.log(Level.INFO, "Connected to GeoPackage "+dbFile.getName());
 	}
-
+	/** Get the name of the database file associated with this GeoPackage
+	 * 
+	 * @return
+	 */
+	public String getDatabaseFileName() {
+		return this.dbFile.toString();
+	}
 	/** Close the underlying SQLite DB instance associated with this GeoPackge
 	 * 
 	 */
@@ -320,7 +327,7 @@ public class GeoPackage {
 		}
 		
 		// Is BBOX valid against the table or tile_matrix_set?
-		if ( !checkBBOXAgainstLast(bbox, false)) return allFeats;
+		if ( !checkBBOXAgainstLast(bbox, false, false)) return allFeats;
 		
 		// Tile matrix data for this table
 		GpkgRecords tmRecs = getSystemTable(GpkgTileMatrix.TABLE_NAME).query(
@@ -362,7 +369,7 @@ public class GeoPackage {
 	 * matching the tableName and a {@link GeometryDescriptor} mathing that defined
 	 * in gpkg_contents for the table.<p>
 	 * The feature id (accessible via {@link SimpleFeature#getID()}) is the of the form 
-	 * <code>RecordID/zoom/row_ref/col_ref (or id/zoom/x/y) </code><p>
+	 * <code>TableName-RecordID-zoom-row_ref-col_ref (or tableName-id-zoom-x-y) </code><p>
 	 * The image data is stored as a byte[] on an attribute named 'the_image' and the bounds
 	 * of the tile are stored as a {@link BoundingBox} on an attribute named 'the_geom'.
 	 * 
@@ -407,23 +414,30 @@ public class GeoPackage {
 				);
 		
 		List<Object> attrValues = null;
+		TileMatrixInfo tmi = ((TilesTable)lastFeatTable).getTileMatrixInfo();
 		
 		// Now go through each record building the feature with it's attribute values
 		for (Map<String, GpkgField> record : featRecords) {
 			
-			// Create new list so previous values are not overridden 
+			// Create new list so previous values are not over-written 
 			attrValues = new ArrayList<Object>();
 			attrValues.add(record.get("tile_data").value);
-			// TODO Construct bounding box for tile..
-			BoundingBox bbox = new BoundingBoxImpl(1, 1, 1, 1, thisCRS);
+			
+			// Construct bounding box for tile
+			BoundingBox bbox = tmi.getTileBounds(
+					(Integer) record.get("tile_column").getValue(), 
+					(Integer) record.get("tile_row").getValue(), 
+					(Integer) record.get("zoom_level").getValue()
+					);
 			attrValues.add( bbox );
 			
 			// The ID for this tile
-			String fid = String.format("%s/%s/%s/%s",
-							record.get("id").value,
-							record.get("zoom_level").value,
-							record.get("tile_column").value,
-							record.get("tile_row").value );
+			String fid = String.format("%s-%s-%s-%s-%s",
+					tableName,
+					record.get("id").value,
+					record.get("zoom_level").value,
+					record.get("tile_column").value,
+					record.get("tile_row").value );
 			
 			// Create the feature and add to list of all features
 			allFeats.add( new SimpleFeatureImpl(fid, attrValues, featureType ) );
@@ -431,16 +445,18 @@ public class GeoPackage {
 		
 		return allFeats;
 	}
-	/** Convenience method to check the passed bounding box (for a query) SRS matches
+	/** Convenience method to check the passed bounding box (for a query) CRS matches
 	 * that on the {@link #lastFeatTable} and the bbox is within/ intersects with the 
 	 * table boundingbox
 	 * 
 	 * @param bbox The query Bounding box
 	 * @param includeIntersect If vector/ feature data, should we test for intersection as
 	 * well as contains?
+	 * @param shortTest If True only the CRS's are tested to make sure they match. If False, the 
+	 * table and/ or tile matrix set extents are tested as well.
 	 * @return True if checks pass
 	 */
-	private boolean checkBBOXAgainstLast(BoundingBox bbox, boolean includeIntersect) {
+	private boolean checkBBOXAgainstLast(BoundingBox bbox, boolean includeIntersect, boolean shortTest) {
 		
 		// Check the SRS's are the same (Projection beyond scope of implementation)
 		BoundingBox tableBbox = lastFeatTable.getBounds();
@@ -454,6 +470,9 @@ public class GeoPackage {
 			log.log(Level.WARNING, "Passed bounding box SRS does not match table SRS");
 			return false;
 		}
+		
+		if (shortTest) return true;
+		
 		
 		/* If GpkgContents has null bounds for this table do full query,
 		 * otherwise test the table bounds */
@@ -497,16 +516,32 @@ public class GeoPackage {
 		
 		return queryTable;
 	}
+	/** Get a list of all SimpleFeature's within, or intersecting with, the supplied BoundingBox.<p>
+	 * This version always performs an intersection test and does not check the bbox is within or 
+	 * intersecting with the table extents
+	 * 
+	 * @param tableName The table name in this GeoPackage to query.
+	 * @param bbox The {@link BoundingBox} to find features in, or intersecting with.
+	 * @return A list of {@linkplain SimpleFeature}'s
+	 * @throws Exception If the SRS of the supplied {@link BoundingBox} does not match the SRS of
+	 * the table being queried.
+	 */
+	public List<SimpleFeature> getFeatures(String tableName, BoundingBox bbox) throws Exception {
+		return getFeatures(tableName, bbox, true, true);
+	}
 	/** Get a list of all SimpleFeature's within, or intersecting with, the supplied BoundingBox.
 	 * 
 	 * @param tableName The table name in this GeoPackage to query.
 	 * @param bbox The {@link BoundingBox} to find features in, or intersecting with.
 	 * @param includeIntersect Should feature's intersecting with the supplied box be returned?
+	 * @param testExtents Should the bbox be tested against the data extents in gpkg_contents before
+	 * issuing the query? If <code>False</code> a short test on the extents is performed. (In case table
+	 * extents are null) 
 	 * @return A list of {@linkplain SimpleFeature}'s
 	 * @throws Exception If the SRS of the supplied {@link BoundingBox} does not match the SRS of
 	 * the table being queried.
 	 */
-	public List<SimpleFeature> getFeatures(String tableName, BoundingBox bbox, boolean includeIntersect) throws Exception {
+	public List<SimpleFeature> getFeatures(String tableName, BoundingBox bbox, boolean includeIntersect, boolean testExtents) throws Exception {
 		log.log(Level.INFO, "BBOX query for features in "+tableName);
 		
 		List<SimpleFeature> allFeats = new ArrayList<SimpleFeature>();
@@ -518,7 +553,7 @@ public class GeoPackage {
 		}
 		
 		// Is BBOX valid against the table?
-		if ( !checkBBOXAgainstLast(bbox, includeIntersect)) return allFeats;
+		if ( !checkBBOXAgainstLast(bbox, includeIntersect, testExtents)) return allFeats;
 		
 		// If this GeoPackage is RTREE enabled, use the spatial index
 		boolean hasRTree = false;//TODO Not sure how we know yet!
@@ -550,7 +585,7 @@ public class GeoPackage {
 		
 		while (allCur.moveToNext()) {
 			
-			// Decode the geometry
+			// Decode the geometry and test
 			geom = decodeGeometry( allCur.getBlob(1) );
 			fEnv = new BoundingBoxImpl( geom.getEnvelopeInternal(), ""+geom.getSRID() );
 
@@ -558,7 +593,7 @@ public class GeoPackage {
 			if (hit) {
 				finalIDs.append(allCur.getInt(0)).append(",");
 			}
-			
+
 		}
 		allCur.close();
 		
@@ -598,7 +633,8 @@ public class GeoPackage {
 		}
 		
 		// Get the records matching our query
-		GpkgRecords featRecords = lastFeatTable.query(this, whereClause);
+		if (whereClause.equals("")) whereClause = null;
+		GpkgRecords featRecords = ((FeaturesTable)lastFeatTable).query(whereClause);
 		if (featRecords.size()==0) return allFeats;
 
 		GeometryInfo geomInfo = ((FeaturesTable)lastFeatTable).getGeometryInfo();
@@ -669,7 +705,7 @@ public class GeoPackage {
 				
 				// If defined as the feature's ID, store for feature creation
 				if ( thisField.isFeatureID() ) {
-					fid = thisField.getValue().toString();
+					fid = String.valueOf( thisField.getValue() );
 					continue; // Add as ID, not an attribute
 				}
 				
@@ -811,8 +847,28 @@ public class GeoPackage {
 			throw new Exception("Could not decode tile reference from ID");
 		}
 		
-		return insertTile(tableName.replace(" ", "_"), tileData, x, y, z);
+		return insertTile(tableName, tileData, x, y, z);
 		
+	}
+	/** Get a single tile by its zoom level column and row from this GeoPackage
+	 * 
+	 * @param tableName The name of the table to query
+	 * @param x_col X reference (the column)
+	 * @param y_row Y reference (the row)
+	 * @param zoom The zoom level from the tile_matrix (generally between 0-18)
+	 * @return A byte[] or Null if no matching record is found
+	 *  
+	 * @throws Exception
+	 */
+	public byte[] getTile(String tableName, int x_col, int y_row, int zoom) throws Exception {
+		// Cache table as could be inserting 1000s features
+		if (lastFeatTable==null || !lastFeatTable.getTableName().equals(tableName)) {
+			lastFeatTable = new TilesTable(this, tableName);
+		}
+		
+		GpkgRecords recs = lastFeatTable.query(this, String.format("zoom_level=%s AND tile_column=%s AND tile_row=%s", zoom, x_col, y_row));
+		
+		return recs.getFieldBlob(0, "tile_data");
 	}
 	/** Insert a single raster tile into the GeoPackage
 	 * 
@@ -857,6 +913,21 @@ public class GeoPackage {
 		
 		return lastFeatTable.insert(this, values);
 	}
+	/** Create a {@linkplain FeaturesTable} from a {@link SimpleFeatureType}
+	 * 
+	 * @param featureType The SimpleFeatureType to use.
+	 * @param tableExtents The extents for this table
+	 * @return The new FeaturesTable
+	 * @throws Exception If the supplied data is invalid or constraints are not 
+	 * met (i.e No matching SRS definition in the gpkg_spatial_ref_sys table)
+	 */
+	public FeaturesTable createFeaturesTable(SimpleFeatureType featureType, BoundingBox tableExtents) throws Exception {
+		FeaturesTable ft = new FeaturesTable( this, featureType.getTypeName());
+		
+		ft.create( featureType, tableExtents );
+		
+		return ft;
+	}
 	/**
 	 * 
 	 * @param features
@@ -878,7 +949,7 @@ public class GeoPackage {
 	}
 	/** Insert a single {@link SimpleFeature} into the GeoPackage.
 	 * The table name to insert into is taken from the local part of
-	 * the {@link FeatureType#getName()} (with ' ' replaced with '_'.
+	 * the {@link FeatureType#getName()}.
 	 * 
 	 * @param feature The SimpleFeature to insert.
 	 * @return The RowID of the new record or -1 if not inserted
@@ -889,7 +960,7 @@ public class GeoPackage {
 		String tableName = type.getName().getLocalPart();
 		
 		// Cache table as could be inserting 1000s features
-		if (lastFeatTable==null || !lastFeatTable.getTableName().equals(tableName.replace(" ", "_"))) {
+		if (lastFeatTable==null || !lastFeatTable.getTableName().equals(tableName)) {
 			lastFeatTable = new FeaturesTable(this, tableName);
 		}
 
@@ -900,6 +971,9 @@ public class GeoPackage {
 		boolean passConstraint = true;
 		
 		for (GpkgField f : lastFeatTable.getFields()) {
+			
+			if (f.isPrimaryKey()) continue; // We can't update the PK!
+		
 			field = (FeatureField)f;
 			
 			// If defined as feature id, use getID, else find the attribute
@@ -907,7 +981,9 @@ public class GeoPackage {
 				value = feature.getID();
 			} else {
 				int idx = type.indexOf( field.getFieldName() );
-				if (idx==-1) continue; //This field isn't defined on the feature type, so can't insert value
+				//This field isn't defined on the feature type, so can't insert value
+				if (idx==-1 || idx > type.getAttributeCount()) continue; 
+				
 				value = feature.getAttribute(idx);
 			}
 
@@ -945,7 +1021,7 @@ public class GeoPackage {
 	 * @throws ParseException
 	 */
 	private Geometry decodeGeometry(Object inGeom) throws IOException, ParseException {
-		if ((inGeom instanceof byte[])==false) throw new IOException("Not Geometry");
+		if ((inGeom instanceof byte[])==false) throw new IOException("Decode Geometry: Passed object is not byte[]");
 		
 		ByteArrayInputStream bais = new ByteArrayInputStream( (byte[])inGeom );
 		
@@ -953,7 +1029,7 @@ public class GeoPackage {
 		byte[] buffer = new byte[2];
 		bais.read(buffer);
 		String magic = new String(buffer);
-		if (!magic.equals("GP") && MODE_STRICT) throw new ParseException("Geometry header not valid");
+		if (!magic.equals("GP") && MODE_STRICT) throw new ParseException("Decode Geometry: Geometry header not valid");
 
 		// TODO: Check version number against...?
 		int version = bais.read();
@@ -1190,26 +1266,27 @@ public class GeoPackage {
 	/** Encode basic Java types to those permissible in a GeoPackage
 	 * 
 	 * @param object The object value to decode
-	 * @return A String useable for a table definition data type
+	 * @return A String usable for a table definition data type. Defaults to TEXT for
+	 * any unknown class or Object
 	 */
 	public String encodeType(Class<?> clazz) {
-		String name = clazz.getSimpleName();
+		String name = clazz.getSimpleName().toLowerCase();
 
-		if (name.equals("Integer") ) {
+		if (name.equals("integer") || name.equals("int")) {
 			return "INTEGER";
-		} else if (name.equals("String")) {
+		} else if (name.equals("string")) {
 			return "TEXT";
-		} else if (name.equals("Boolean")) {
+		} else if (name.equals("boolean") || name.equals("byte")) {
 			return "BOOL";
-		} else if (name.equals("Double") || name.equals("Float")) {
+		} else if (name.equals("double") || name.equals("float")) {
 			return "REAL";
-		} else if (name.equals("Long")) {
+		} else if (name.equals("long")) {
 			return "INTEGER";
-		} else if (name.equals("Geometry") ) {
+		} else if (name.equals("geometry") || name.equals("byte[]")) {
 			return "BLOB";
 		}
 		
-		return "BLOB";
+		return "TEXT";
 	}
 	/** Decode SQLite data types to Java classes
 	 * 

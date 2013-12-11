@@ -45,6 +45,18 @@ public class GpkgRecords extends ArrayList<Map<String, GpkgField>>{
 
 		return Integer.valueOf( f.getValue().toString() );
 	}
+	/** Get a records blob field (as byte[])
+	 * 
+	 * @param record The record ID
+	 * @param field The field name
+	 * @return A byte[] or null if no record or field with the supplied name exists
+	 */
+	public byte[] getFieldBlob(int record, String field) {
+		if (this.size()==0 || this.size()<record) return null;
+		GpkgField f = this.get(record).get(field);
+		
+		return (byte[]) f.getValue();
+	}
 	/** Get a records field value as a Float
 	 * 
 	 * @param record The record ID

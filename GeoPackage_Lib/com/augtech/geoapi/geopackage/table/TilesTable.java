@@ -15,7 +15,10 @@
  */
 package com.augtech.geoapi.geopackage.table;
 
+import java.util.Collection;
 import java.util.Date;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.logging.Level;
 
 import org.opengis.geometry.BoundingBox;
@@ -23,6 +26,7 @@ import org.opengis.geometry.BoundingBox;
 import com.augtech.geoapi.geometry.BoundingBoxImpl;
 import com.augtech.geoapi.geopackage.DateUtil;
 import com.augtech.geoapi.geopackage.GeoPackage;
+import com.augtech.geoapi.geopackage.GpkgField;
 import com.augtech.geoapi.geopackage.GpkgRecords;
 import com.augtech.geoapi.geopackage.GpkgTable;
 import com.augtech.geoapi.referncing.CoordinateReferenceSystemImpl;
@@ -30,7 +34,8 @@ import com.augtech.geoapi.referncing.CoordinateReferenceSystemImpl;
 
 public class TilesTable extends GpkgTable {
 	GeoPackage geoPackage = null;
-
+	private TileMatrixInfo tileMatrixInfo = null;
+	
 	/**
 	 * 
 	 * @param geoPackage
@@ -79,13 +84,13 @@ public class TilesTable extends GpkgTable {
 			throws Exception {
 	
 		if (isTableInGpkg(geoPackage)) {
-			geoPackage.log.log(Level.WARNING, "Table "+tableName+" already defined in "+GpkgContents.TABLE_NAME);
+			geoPackage.log.log(Level.INFO, "Table ["+tableName+"] already defined in "+GpkgContents.TABLE_NAME);
 			return true;
 		}
 
 		// Doesn't exist in Contents, but does in DB, therefore not valid and drop
 		if (isTableInDB(geoPackage)) {
-			geoPackage.log.log(Level.INFO, "Replacing table "+tableName);
+			geoPackage.log.log(Level.WARNING, "Replacing table "+tableName);
 			geoPackage.getDatabase().execSQL("DROP table ["+tableName+"]");
 		}
 		
@@ -148,10 +153,20 @@ public class TilesTable extends GpkgTable {
 					tilePixelsXY, pixelDistAtMaxZoomX, pixelDistAtMaxZoomY);
 		}
 		
-		// Read data back in case this object is stored.
-		super.getContents(geoPackage);
+		// This will also read back the core details.
+		getTileMatrixInfo();
 		
 		return success && tmSuccess;
+	}
+	/** Issue a raw query on this table using a where clause
+	 * 
+	 * @param strWhere The where clause excluding the 'where'
+	 * @return
+	 * @throws Exception
+	 */
+	public GpkgRecords query(String strWhere) throws Exception {
+		getTileMatrixInfo();
+		return super.query(geoPackage, strWhere);
 	}
 
 	/**
@@ -159,30 +174,177 @@ public class TilesTable extends GpkgTable {
 	 */
 	@Override
 	public BoundingBox getBounds() {
-		if (super.getBounds().isEmpty()) {
-			try {
-				super.getContents(geoPackage);
-			} catch (Exception e) {
-				e.printStackTrace();
-			}
+		try {
+			super.getContents(geoPackage);
+		} catch (Exception e) {
+			e.printStackTrace();
 		}
+
 
 		return super.getBounds();
 	}
-
 	/**
 	 * @return the lastChange
 	 */
 	@Override
 	public Date getLastChange() {
-		if (super.getLastChange()==null) {
-			try {
-				super.getContents(geoPackage);
-			} catch (Exception e) {
-				e.printStackTrace();
-			}
+		try {
+			super.getContents(geoPackage);
+		} catch (Exception e) {
+			e.printStackTrace();
 		}
+
 		return super.getLastChange();
 	}
-	
+	/** Get the tile matrix information for this table. This is cached on the table
+	 * for future use
+	 * 
+	 * @return
+	 * @throws Exception
+	 */
+	public TileMatrixInfo getTileMatrixInfo() throws Exception {
+		if (tileMatrixInfo!=null) return tileMatrixInfo;
+		
+		// Get the core details
+		super.getContents(geoPackage);
+		
+		// Tile Matrix column details
+		GpkgRecords gRecord = geoPackage.getSystemTable(GpkgTileMatrix.TABLE_NAME)
+				.query(geoPackage, "table_name='"+tableName+"';");
+		
+		if (gRecord==null)
+			throw new Exception("No tile matrix definition for "+tableName);
+		
+		Map<Integer, Collection<GpkgField>> tm = new HashMap<Integer, Collection<GpkgField>>();
+		for (int i=0; i<gRecord.size(); i++) {
+			
+			tm.put(
+					gRecord.getFieldInt(i, "zoom_level"), 
+					gRecord.get(i).values());
+		}
+		
+		// Get bounds from tile_matrix_set
+		gRecord = geoPackage.getSystemTable(GpkgTileMatrixSet.TABLE_NAME)
+						.query(geoPackage, "table_name='"+tableName+"';");
+		
+		BoundingBox tmBox = new BoundingBoxImpl(
+				gRecord.getFieldDouble(0,"min_x"),
+				gRecord.getFieldDouble(0,"max_x"),
+				gRecord.getFieldDouble(0,"min_y"),
+				gRecord.getFieldDouble(0,"max_y"),
+				new CoordinateReferenceSystemImpl(""+gRecord.getFieldInt(0, "srs_id"))
+				);
+
+		
+		tileMatrixInfo = new TileMatrixInfo(tm, tmBox);
+		
+		return tileMatrixInfo;
+	}
+	/** An object to hold Tile Matrix information about this table
+	 * 
+	 *
+	 */
+	public class TileMatrixInfo {
+		private Map<Integer, Collection<GpkgField>> matFields = new HashMap<Integer, Collection<GpkgField>>();
+		int maxZoom = 1;
+		BoundingBox bbox = null;
+		
+		/** Create a new TileMatrixInfo.
+		 * 
+		 * @param matFields A Map of TileMatrix fields by zoom level
+		 * @param bbox The extents of the TileMatrixSet
+		 */
+		public TileMatrixInfo(Map<Integer, Collection<GpkgField>> matFields, BoundingBox bbox) {
+			this.matFields = matFields;
+			int z = 0;
+			for (int t=0; t < matFields.keySet().size(); t++) if (t>z) z=t;
+			this.bbox = bbox;
+		}
+		/** Get the highest zoom level defined for this matrix (the most detailed)
+		 * 
+		 * @return
+		 */
+		public int getMaxZoom() {
+			return this.maxZoom;
+		}
+		/** Get a single pixel size for a tile at a specified zoom level
+		 * 
+		 * @param zoom The required zoom
+		 * @return double[] as X and Y pixel size or Double.NaN, Double.NaN if the zoom level does not exist
+		 */
+		public double[] getPixelSize(int zoom) {
+			double[] ret = new double[]{Double.NaN, Double.NaN};
+			
+			for (GpkgField gf : matFields.get(zoom)) {
+				if (gf.getFieldName().equals("pixel_x_size")) {
+					ret[0] = Double.valueOf(String.valueOf(gf.getValue()) );
+				} else if (gf.getFieldName().equals("pixel_y_size")) {
+					ret[1] = Double.valueOf(String.valueOf(gf.getValue()) );
+				}
+			}
+			
+			return ret;
+		}
+		/** Get the tile size in pixels for a single tile at a specified zoom level
+		 * 
+		 * @param zoom The required zoom
+		 * @return int[] as X and Y number of pixels or -1,-1 if the zoom level does not exist
+		 */
+		public int[] getTileSize(int zoom) {
+			int[] ret = new int[]{-1,-1};
+			
+			for (GpkgField gf : matFields.get(zoom)) {
+				if (gf.getFieldName().equals("tile_width")) {
+					ret[0] = Integer.valueOf(String.valueOf(gf.getValue()) );
+				} else if (gf.getFieldName().equals("tile_height")) {
+					ret[1] = Integer.valueOf(String.valueOf(gf.getValue()) );
+				}
+			}
+			
+			return ret;
+		}
+		/** Get the size of the matrix at the specified zoom
+		 * 
+		 * @param zoom The required zoom
+		 * @return int[] as width and height in tiles or -1,-1 if the zoom level does not exist
+		 */
+		public int[] getMatrixSize(int zoom) {
+			int[] ret = new int[2];
+			
+			for (GpkgField gf : matFields.get(zoom)) {
+				if (gf.getFieldName().equals("matrix_width")) {
+					ret[0] = Integer.valueOf(String.valueOf(gf.getValue()) );
+				} else if (gf.getFieldName().equals("matrix_height")) {
+					ret[1] = Integer.valueOf(String.valueOf(gf.getValue()) );
+				}
+			}
+			
+			return ret;
+		}
+		/** Get the {@linkplain BoundingBox} of a single tile
+		 * 
+		 * @param x X tile reference (column)
+		 * @param y Y tile reference (row)
+		 * @param zoom Zoom level
+		 * @return A new Bounding box in the tile matrix CoordinateReferenceSystem or an
+		 * empty BoundingBox if the zoom, x or y references are outside the bounds of this matrix
+		 */
+		public BoundingBox getTileBounds(int x, int y, int zoom) {
+			
+			int[] mXY = getMatrixSize( zoom );
+			if (x>mXY[0] || x<1 || y>mXY[1] || y<1)
+				return new BoundingBoxImpl(bbox.getCoordinateReferenceSystem());
+			
+			double[] pXY = getPixelSize( zoom );
+			int[] tXY = getTileSize( zoom );
+			
+			return new BoundingBoxImpl(
+					bbox.getMinX()+( pXY[0]*tXY[0]*x ),
+					bbox.getMinX()+( pXY[0]*tXY[0]*(x+1) ),
+					bbox.getMaxY()-( pXY[1]*tXY[1]*y ),
+					bbox.getMaxY()-( pXY[1]*tXY[1]*(y+1) ),
+					bbox.getCoordinateReferenceSystem()
+					);
+		}
+	}
 }

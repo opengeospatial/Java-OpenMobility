@@ -109,20 +109,25 @@ public class FeaturesTable extends GpkgTable {
 	 */
 	public boolean create(SimpleFeatureType featureType, BoundingBox bbox) throws Exception {
 		
-		GeometryDescriptor geomDescriptor = featureType.getGeometryDescriptor();
-		
-		if (!geoPackage.isGeomTypeValid(geomDescriptor) )
-			throw new Exception("Invalid geometry type for table");
-		
 		if (isTableInGpkg(geoPackage)) {
-			geoPackage.log.log(Level.WARNING, "Table "+tableName+" already defined in "+GpkgContents.TABLE_NAME);
+			geoPackage.log.log(Level.INFO, "Table "+tableName+" already defined in "+GpkgContents.TABLE_NAME);
 			return true;
 		}
-
+		
 		// Doesn't exist in Contents, but does in DB, therefore not valid and drop
 		if (isTableInDB(geoPackage)) {
-			geoPackage.log.log(Level.INFO, "Replacing table "+tableName);
+			geoPackage.log.log(Level.WARNING, "Replacing table "+tableName);
 			geoPackage.getDatabase().execSQL("DROP table ["+tableName+"]");
+		}
+		
+		// Get and test Geometry type is valid
+		GeometryDescriptor geomDescriptor = featureType.getGeometryDescriptor();
+		
+		if (!geoPackage.isGeomTypeValid(geomDescriptor) ) {
+			String err = String.format("Invalid geometry type for table %s : %s", 
+							tableName, 
+							geomDescriptor.getType().getName().getLocalPart().toLowerCase() );
+			throw new Exception(err);
 		}
 		
 		String raw = null;
@@ -250,30 +255,25 @@ public class FeaturesTable extends GpkgTable {
 		return success;
 	}
 
-	/* (non-Javadoc)
-	 * @see com.augtech.geoapi.geopackage.table.GpkgTable#query(com.augtech.geoapi.geopackage.GeoPackage, java.lang.String)
+	/** Issue a raw query on this table using a where clause
+	 * 
+	 * @param strWhere The where clause excluding the 'where'
+	 * @return
+	 * @throws Exception
 	 */
-	@Override
-	public GpkgRecords query(GeoPackage geoPackage, String strWhere) throws Exception {
-		if (super.getFields().size()==0) {
-			getContents();
-		}
+	public GpkgRecords query(String strWhere) throws Exception {
+		getContents();
 		return super.query(geoPackage, strWhere);
 	}
 
-
-	/* (non-Javadoc)
-	 * @see com.augtech.geoapi.geopackage.table.GpkgTable#getField(java.lang.String)
-	 */
 	@Override
 	public GpkgField getField(String fieldName) {
-		if (super.getFields().size()==0) {
-			try {
-				getContents();
-			} catch (Exception e) {
-				e.printStackTrace();
-			}
+		try {
+			getContents();
+		} catch (Exception e) {
+			e.printStackTrace();
 		}
+
 		return super.getField(fieldName);
 	}
 	/** Get extended information for this FeatureTable
@@ -369,18 +369,14 @@ public class FeaturesTable extends GpkgTable {
 		
 		return geometryInfo;
 	}
-	/* (non-Javadoc)
-	 * @see com.augtech.geoapi.geopackage.table.GpkgTable#getFields()
-	 */
+
 	@Override
 	public Collection<GpkgField> getFields() {
-		if (super.getFields().size()==0) {
-			try {
-				getContents();
-			} catch (Exception e) {
-				e.printStackTrace();
-				return null;
-			}
+		try {
+			getContents();
+		} catch (Exception e) {
+			e.printStackTrace();
+			return null;
 		}
 
 		return super.getFields();
@@ -390,12 +386,10 @@ public class FeaturesTable extends GpkgTable {
 	 */
 	@Override
 	public BoundingBox getBounds() {
-		if (super.getBounds().isEmpty()) {
-			try {
-				super.getContents(geoPackage);
-			} catch (Exception e) {
-				e.printStackTrace();
-			}
+		try {
+			super.getContents(geoPackage);
+		} catch (Exception e) {
+			e.printStackTrace();
 		}
 
 		return super.getBounds();
@@ -406,13 +400,12 @@ public class FeaturesTable extends GpkgTable {
 	 */
 	@Override
 	public Date getLastChange() {
-		if (super.getLastChange()==null) {
-			try {
-				super.getContents(geoPackage);
-			} catch (Exception e) {
-				e.printStackTrace();
-			}
+		try {
+			super.getContents(geoPackage);
+		} catch (Exception e) {
+			e.printStackTrace();
 		}
+
 		return super.getLastChange();
 	}
 	
