@@ -146,7 +146,7 @@ public class AndroidSQLDatabase extends SQLiteOpenHelper implements ISQLDatabase
 			} else if (o instanceof Short) {
 				cv.put(v.getKey(), (Short)o );	
 			} else {
-				cv.put(v.getKey(), o.toString() );
+				cv.put(v.getKey(), String.valueOf(o) );
 			}
 			
 		}
