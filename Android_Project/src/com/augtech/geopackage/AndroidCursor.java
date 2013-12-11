@@ -105,19 +105,5 @@ public class AndroidCursor implements ICursor {
 	public String[] getColumnNames() {
 		return cur.getColumnNames();
 	}
-
-	@Override
-	public String getType(int columnIndex) {
-		int t = cur.getType(columnIndex);
-		switch(t) {
-		case Cursor.FIELD_TYPE_INTEGER:
-			return "INTEGER";
-		case Cursor.FIELD_TYPE_FLOAT:
-			return "FLOAT";
-		case Cursor.FIELD_TYPE_BLOB:
-			return "BLOB";
-		}
-		return "TEXT";
-	}
 	
 }
