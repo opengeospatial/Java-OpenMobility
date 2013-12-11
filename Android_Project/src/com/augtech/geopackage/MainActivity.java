@@ -43,17 +43,17 @@ public class MainActivity extends Activity {
 
 	static final String LOG_TAG = "GeoPackage Client";
 	TestCase testing = null;
-	File testDir = getDirectory("GeoPackageTest");
+	File testDir = getDirectory("Awila/tiles");
 	TextView statusText = null;
-	private boolean overWrite = true;
-	String tilesTable = "googleTiles";
+	private boolean overWrite = false;
+	String tilesTable = "historic_images";
 	
 	@Override
 	protected void onCreate(Bundle savedInstanceState) {
 		super.onCreate(savedInstanceState);
 		setContentView(R.layout.activity_main);
 		
-		testing = new TestCase(this, new File(testDir, "test1.gpkg"), overWrite );
+		testing = new TestCase(this, new File(testDir, "9-master.gpkg"), overWrite );
 
 		statusText = (TextView) findViewById(R.id.statusText);
 		Button load = (Button)findViewById(R.id.btn_testLoad);
@@ -81,8 +81,15 @@ public class MainActivity extends Activity {
 			
 			try {
 				// Load a GML file to use for testing creation and inserts
-				boolean gmlLoaded = testing.loadGMLToCollection(new File(testDir, "test_gml.tile") );
-				statusText.setText("GML file loaded: "+gmlLoaded);
+				List<File> files = getFileListingNoSort(getDirectory("Awila/tiles/566/15"), true, true);
+				int i=0;
+				for (File f : files) {
+					if (!f.isDirectory()) {
+						testing.loadGMLToCollection(f, false );
+						i++;
+					}
+				}
+				statusText.setText("GML files loaded: "+i);
 				
 				// Load feature types from GML into the GeoPackage
 				boolean typesloaded = testing.createFeatureTablesFromCollection( true );
@@ -94,14 +101,14 @@ public class MainActivity extends Activity {
 				
 				/* Create a table to hold tiles. 
 				 * This is the same name that the image FeatureType will have*/
-				testing.createTilesTable( tilesTable );
+				testing.createTilesTable( tilesTable, 1024 );
 
 				// Load a full tree of tiles
-				List<File> files = getFileListingNoSort(getDirectory("Awila/tiles/1000000/18"), true, true);
-				int i=0;
-				for (File f : files) {
-					if (f.isDirectory()) {
-						testing.loadTilesToCollection( f );
+				files = getFileListingNoSort(getDirectory("Awila/tiles/567/17"), true, true);
+				i=0;
+				for (File file : files) {
+					if (file.isDirectory()) {
+						testing.loadTilesToCollection( tilesTable, file );
 						i++;
 					}
 				}
@@ -129,10 +136,21 @@ public class MainActivity extends Activity {
 			try {
 				// If it is loaded, test querying for features/ tiles
 				if (testing.isGpkgLoaded()) {
-					
+
 					List<SimpleFeature> feats = null;
 					BoundingBox bbox = null; 
-							
+
+					// Get all features from a table
+					feats = testing.getGeoPackage().getFeatures("foul_sewer", "");
+					statusText.setText(""+feats.size()+" feature(s) read!");
+					
+					// Get all features within a bounding box
+					bbox = new BoundingBoxImpl(
+							389587, 390041, 262954, 263645, 
+							new CoordinateReferenceSystemImpl("27700") );
+					feats = testing.getGeoPackage().getFeatures("foul_sewer", bbox);
+					statusText.setText(""+feats.size()+" feature(s) read via bbox query!");
+					
 					// Get all tiles from a single table
 					feats = testing.getGeoPackage().getTiles(tilesTable, null);
 					statusText.setText(""+feats.size()+" images(s) read!");
@@ -141,19 +159,12 @@ public class MainActivity extends Activity {
 					feats = testing.getGeoPackage().getTiles(tilesTable, "zoom_level=18 and tile_column=129506 and tile_row=86286");
 					statusText.setText(""+feats.size()+" images(s) read!");
 
-					// Get a set of tiles within/ across a bounding box (Droitwich!)
-					bbox = new BoundingBoxImpl(-239247.301401622, -238788.67923184743, 6846158.279178806, 6846616.90134858, new CoordinateReferenceSystemImpl("3857"));
+					// Get a set of tiles within/ across a bounding box
+					bbox = new BoundingBoxImpl(
+							-239247.301401622, -238788.67923184743, 6846158.279178806, 6846616.90134858, 
+							new CoordinateReferenceSystemImpl("3857"));
 					feats = testing.getGeoPackage().getTiles(tilesTable, bbox, 18);
 					statusText.setText(""+feats.size()+" images(s) read!");
-					
-					// Get all features from a table
-					feats = testing.getGeoPackage().getFeatures("foul_sewer", null);
-					statusText.setText(""+feats.size()+" feature(s) read!");
-					
-					// Get all features within a bounding box
-					bbox = new BoundingBoxImpl(-2.15, -2.14, 52.26, 52.27);
-					feats = testing.getGeoPackage().getFeatures("foul_sewer", bbox, true);
-					statusText.setText(""+feats.size()+" feature(s) read via bbox query!");
 					
 				}
 				

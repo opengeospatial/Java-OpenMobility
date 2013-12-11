@@ -39,7 +39,7 @@ import com.augtech.geoapi.feature.type.GeometryTypeImpl;
 import com.augtech.geoapi.feature.type.SimpleFeatureTypeImpl;
 import com.augtech.geoapi.geopackage.GeoPackage;
 import com.augtech.geoapi.geopackage.GpkgTable;
-import com.augtech.geoapi.geopackage.table.FeatureTable;
+import com.augtech.geoapi.geopackage.table.FeaturesTable;
 import com.augtech.geoapi.geopackage.table.TilesTable;
 import com.augtech.geoapi.referncing.CoordinateReferenceSystemImpl;
 import com.vividsolutions.jts.geom.Geometry;
@@ -87,14 +87,15 @@ public class TestCase {
 	/** Add a new user tiles table suitable for Slippy tiles (OSM tiles)
 	 * 
 	 * @param tableName
+	 * @param pxWidthHeight Width and height in pixels
 	 * @return
 	 */
-	public boolean createTilesTable(String tableName) {
+	public boolean createTilesTable(String tableName, int pxWidthHeight) {
 		
 		TilesTable tt = new TilesTable(geoPackage, tableName);
 		boolean added = false;
 		try {
-			added = tt.create(256);
+			added = tt.create( pxWidthHeight );
 		} catch (Exception e) {
 			e.printStackTrace();
 		}
@@ -117,10 +118,12 @@ public class TestCase {
 	}
 	/**
 	 * 
-	 * @param path
+	 * @param typeName The name of the feature type on the collection
+	 * (should match the tableName)
+	 * @param path The directory where the tiles are stored
 	 * @return
 	 */
-	public boolean loadTilesToCollection(File path) {
+	public boolean loadTilesToCollection(String typeName, File path) {
 		if (!path.exists()) return false;
 		
 		Log.i(LOG_TAG, "Loading Images...");
@@ -137,7 +140,7 @@ public class TestCase {
 				new CoordinateReferenceSystemImpl("3857"));
 		
 		// Now construct the feature type
-		Name fTypeName = new NameImpl("googleTiles");
+		Name fTypeName = new NameImpl( typeName );
 		SimpleFeatureType sft = new SimpleFeatureTypeImpl(
 				fTypeName,
 				attrs,
@@ -171,10 +174,11 @@ public class TestCase {
 	/** Load a GML File to the internal feature collection.
 	 * 
 	 * @param fileName
+	 * @param overwrite True to overwrite the existing FeatureCollection, False to append 
 	 * @return True if >0 features are loaded to the featureCollection
 	 * @throws Exception
 	 */
-	public boolean loadGMLToCollection(File gmlFile) throws Exception {
+	public boolean loadGMLToCollection(File gmlFile, boolean overwrite) throws Exception {
 		if (!gmlFile.exists()) return false;
 		Log.i(LOG_TAG, "Loading GML...");
 		
@@ -184,10 +188,20 @@ public class TestCase {
 		int numFeat = gmlLoader.loadFeatures(gmlIS);
 
 		Map<Name, SimpleFeatureType> fTypes = gmlLoader.getLoadedTypes();
-		
-		featureCollection = new FeatureCollection( fTypes );
+		if (overwrite) {
+			featureCollection = new FeatureCollection( fTypes );
+		} else {
+			if (featureCollection == null) {
+				featureCollection = new FeatureCollection( fTypes );
+			}
+			// In case the new file has types not previously seen
+			if (featureCollection.size()>0) {
+				featureCollection.getDefinedTypes().putAll(fTypes);
+			}
+		}
 		int merged = featureCollection.mergeAll(gmlLoader);
 		
+		// The merged figure can be less as duplicate IDs will not be added.
 		if (numFeat!=merged) Log.i(LOG_TAG, ""+(numFeat-merged)+" features not loaded to FC");
 
 		Log.i(LOG_TAG, "Loaded "+merged+" features");
@@ -257,16 +271,14 @@ public class TestCase {
 		Log.i(LOG_TAG, "Creating feature tables...");
 		
 		int numCreated = 0;
-		
+
 		if (allTypes) {
 			
 			for (SimpleFeatureType sft : featureCollection.getDefinedTypes().values()) {
-				// Load to the GeoPackage
-				FeatureTable ft = new FeatureTable( geoPackage, sft.getTypeName());
 				
-				processed = ft.create( sft, featureCollection.getBounds() );
+				FeaturesTable ft = geoPackage.createFeaturesTable(sft, featureCollection.getBounds() );
 				
-				if (!processed) return false;
+				if (ft==null) return false;
 				numCreated++;
 			}
 			
@@ -278,9 +290,7 @@ public class TestCase {
 				break;
 			}
 
-			// Load to the GeoPackage
-			FeatureTable ft = new FeatureTable( geoPackage, single.getTypeName() );
-			processed = ft.create(single, featureCollection.getBounds() );
+			geoPackage.createFeaturesTable(single, featureCollection.getBounds() );
 			
 			numCreated++;
 		}
