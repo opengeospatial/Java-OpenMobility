@@ -268,24 +268,24 @@ public class FeaturesTable extends GpkgTable {
 
 	@Override
 	public GpkgField getField(String fieldName) {
-		try {
-			getContents();
-		} catch (Exception e) {
-			e.printStackTrace();
-		}
-
+		getContents();
 		return super.getField(fieldName);
 	}
 	/** Get extended information for this FeatureTable
 	 * 
 	 * @throws Exception
 	 */
-	private void getContents() throws Exception {
+	private void getContents() {
 		// Probably already been built
 		if (super.getFields().size()>0 && geometryInfo!=null) return;
 		
 		// Standard info from gpkg_contents and table definition
-		super.getContents(geoPackage);
+		try {
+			super.getContents(geoPackage);
+		} catch (Exception e) {
+			e.printStackTrace();
+			return;
+		}
 		
 		/* Get extended information about each field for this table from GpkgDataColumns.
 		 * There may or may not be column definitions in GpkgDataColumns */
@@ -328,7 +328,11 @@ public class FeaturesTable extends GpkgTable {
 		}
 		
 		// Finally get the geometry info on to this table
-		getGeometryInfo();
+		try {
+			getGeometryInfo();
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
 		
 	}
 
@@ -372,13 +376,7 @@ public class FeaturesTable extends GpkgTable {
 
 	@Override
 	public Collection<GpkgField> getFields() {
-		try {
-			getContents();
-		} catch (Exception e) {
-			e.printStackTrace();
-			return null;
-		}
-
+		getContents();
 		return super.getFields();
 	}
 	/**
@@ -386,12 +384,7 @@ public class FeaturesTable extends GpkgTable {
 	 */
 	@Override
 	public BoundingBox getBounds() {
-		try {
-			super.getContents(geoPackage);
-		} catch (Exception e) {
-			e.printStackTrace();
-		}
-
+		getContents();
 		return super.getBounds();
 	}
 
@@ -400,12 +393,7 @@ public class FeaturesTable extends GpkgTable {
 	 */
 	@Override
 	public Date getLastChange() {
-		try {
-			super.getContents(geoPackage);
-		} catch (Exception e) {
-			e.printStackTrace();
-		}
-
+		getContents();
 		return super.getLastChange();
 	}
 	
