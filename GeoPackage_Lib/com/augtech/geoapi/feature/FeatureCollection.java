@@ -36,6 +36,7 @@ import org.opengis.geometry.BoundingBox;
 import com.augtech.geoapi.feature.type.AttributeTypeImpl;
 import com.augtech.geoapi.feature.type.SimpleFeatureTypeImpl;
 import com.augtech.geoapi.geometry.BoundingBoxImpl;
+import com.augtech.geoapi.geometry.OSMTile;
 import com.vividsolutions.jts.geom.Geometry;
 
 /** The base collection for storing all of awila's geographically
@@ -55,7 +56,7 @@ public class FeatureCollection extends CopyOnWriteArrayList<SimpleFeature> {
 	protected BoundingBox bounds;
 	/** All feature types that are permissible, by their name */
 	protected Map<Name, SimpleFeatureType> availableFeatureTypes = new HashMap<Name, SimpleFeatureType>();
-	private Map<Integer, Set<SimpleFeature>> tileIndex = new HashMap<Integer, Set<SimpleFeature>>();
+	private Map<OSMTile, Set<SimpleFeature>> tileIndex = new HashMap<OSMTile, Set<SimpleFeature>>();
 	
 	
 	/** Create a new feature collection, with the specified types available to
@@ -95,9 +96,10 @@ public class FeatureCollection extends CopyOnWriteArrayList<SimpleFeature> {
 	}
 
     /** Get all the features in this collection that intersect or are contained
-     * by the passed extents.
+     * by the passed {@link BoundingBox}.
      * 
-     * @param extent
+     * @param extent The bounding box to test against. This must be in the same
+     * CRS as the features in order to return the correct features.
      * @return A new ArrayList<SimpleFeature> containing the relevant features
      */
     public ArrayList<SimpleFeature> getFeatures(BoundingBox extent) {
@@ -130,58 +132,6 @@ public class FeatureCollection extends CopyOnWriteArrayList<SimpleFeature> {
 		if (typeNameIndex.get(name)==null) throw new Exception("Type not found");
 		return typeNameIndex.get(name);
 	}
-
-//    /** Create a spatial index of all the features within this collection based
-//     * on tile names. <p>
-//     * The index is cached, so as long as no features are added or removed, and 
-//     * the zoom level is the same as before, the index will not be rebuilt.
-//     * 
-//     * @param zoom	The tile zoom level for the tiles
-//     * @return A new Map<String, ArrayList<SimpleFeature>> containing the features
-//     * @throws Exception 
-//     */
-//    public Map<String, ArrayList<SimpleFeature>> getOSMTileIndex(int zoom) throws Exception {
-//    	if (tileIndexLevel==zoom && tileIndexDirty==false) return tileIndex;
-//    	
-//		tileIndex = new HashMap<String, ArrayList<SimpleFeature>>();
-//		ArrayList<SimpleFeature> curr = null;
-//		String sTile = "";
-//		
-//		for (SimpleFeature sf : this) {
-//			Object geom = sf.getDefaultGeometry();
-//			Coordinate[] coords = null;
-//			if (geom instanceof Geometry) {
-//				Geometry g = (Geometry)sf.getDefaultGeometry();
-//				coords = g.getCoordinates();
-//
-//			} else if ( geom instanceof BoundingBoxImpl) {
-//				BoundingBoxImpl re = (BoundingBoxImpl)geom;
-//				coords = new Coordinate[] {
-//						new Coordinate(re.getMinX(), re.getMinY(), re.getMinZ()),
-//						new Coordinate(re.getMaxX(), re.getMaxY(), re.getMaxZ())
-//						};
-//			} else {
-//				throw new Exception("Unknown Geometry whilst building index");
-//			}
-//			
-//
-//			
-//			for (Coordinate c : coords) {
-//				sTile = OSMUtils.getOSMTileReference(c.y, c.x, zoom);
-//				curr = tileIndex.get(sTile);
-//				if (curr==null) curr = new ArrayList<SimpleFeature>();
-//				
-//				curr.add(sf);
-//				tileIndex.put(sTile,curr);
-//			}
-//
-//		}
-//		
-//		tileIndexDirty = false;
-//		tileIndexLevel = zoom;
-//		
-//		return tileIndex;
-//    }
 
     /** Get a list of FeatureType Names from this feature collection
      * 
@@ -333,30 +283,44 @@ public class FeatureCollection extends CopyOnWriteArrayList<SimpleFeature> {
 		prev.add(feature);
 		typeNameIndex.put(type, prev);
 		
-		// Image features are separated by - and last parts are zoom-xref-yref
+		// Image features are separated by - and last parts are xref-yref-zoom
 		if (feature.getID().matches(".*-[0-9]+-[0-9]+-[0-9]+")) {
-			
-			String[] id = feature.getID().split("-");
-			int zoom = Integer.valueOf(id[id.length-3]);
-			prev = tileIndex.get(zoom);
+			OSMTile tile = new OSMTile(feature.getID());
+			prev = tileIndex.get( tile );
 			if (prev==null) prev = new HashSet<SimpleFeature>();
 			prev.add(feature);
-			tileIndex.put(zoom, prev);
+			tileIndex.put(tile, prev);
 			
 		} else {
-			//TODO Something for features..?
+			/* TODO Something for features..?
+			 * get geometry bounds, calculate tile and insert into relevant index positions?
+			 * This would then also work for removal...	 */
 		}
 		
+	}
+	/** Get all features associated with an OSM tile reference.
+	 * 
+	 * @param tileIdx The tile reference as zoom, XRef, YRef
+	 * @return
+	 */
+	public Set<SimpleFeature> getFeaturesForTile(OSMTile tileIdx) {
+		return tileIndex.get( tileIdx );
 	}
 	/** Get all features associated with a specific zoom level.
 	 * In the case of vector features this will be everything in the collection
 	 * as they are not bound by zoom scales
 	 * 
 	 * @param zoomLevel The level (generally 0-18)
-	 * @return
+	 * @return 
 	 */
 	public Set<SimpleFeature> getFeaturesForZoom(int zoomLevel) {
-		return tileIndex.get(zoomLevel);
+		Set<SimpleFeature> ret = new HashSet<SimpleFeature>();
+		synchronized (tileIndex) {
+			for (Entry<OSMTile, Set<SimpleFeature>>  val : tileIndex.entrySet()) {
+				if (val.getKey().getZoom()==zoomLevel) ret.addAll( val.getValue() );
+			}
+		}
+		return ret;
 	}
 	/** Helper function to maintain indexes - Must be called when removing a feature
 	 * 
