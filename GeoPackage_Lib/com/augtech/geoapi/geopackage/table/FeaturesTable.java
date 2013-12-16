@@ -15,6 +15,7 @@
  */
 package com.augtech.geoapi.geopackage.table;
 
+import java.text.MessageFormat;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Date;
@@ -36,7 +37,9 @@ import com.augtech.geoapi.geopackage.GpkgField;
 import com.augtech.geoapi.geopackage.GpkgRecords;
 import com.augtech.geoapi.geopackage.GpkgTable;
 import com.augtech.geoapi.geopackage.ICursor;
+import com.augtech.geoapi.geopackage.ISQLDatabase;
 import com.augtech.geoapi.geopackage.table.GpkgDataColumnConstraint.DataColumnConstraint;
+import com.augtech.geoapi.geopackage.table.GpkgExtensions.Extension;
 
 /** An extension to the standard {@link GpkgTable} that provides specific functionality
  * relating to a vector feature table within the GeoPackage as well as an enclosed
@@ -47,7 +50,7 @@ import com.augtech.geoapi.geopackage.table.GpkgDataColumnConstraint.DataColumnCo
 public class FeaturesTable extends GpkgTable {
 	
 	/** The feature ID to use in the database and on this table */
-	String featureFieldID = GeoPackage.FEATURE_ID_FIELD_NAME;
+	String featureFieldName = GeoPackage.FEATURE_ID_FIELD_NAME;
 	GeoPackage geoPackage = null;
 	GeometryInfo geometryInfo = null;
 	
@@ -79,7 +82,7 @@ public class FeaturesTable extends GpkgTable {
 		super(tableName, null, null);
 		super.tableType = GpkgTable.TABLE_TYPE_FEATURES;
 		this.geoPackage = geoPackage;
-		this.featureFieldID = featureFieldID;
+		this.featureFieldName = featureFieldID;
 	}
 
 
@@ -149,14 +152,15 @@ public class FeaturesTable extends GpkgTable {
 		// Construct 'fields' text
 		String geomName = geomDescriptor.getLocalName();
 		List<String> dataColumnDefs = new ArrayList<String>();
-
+		StringBuilder fields = new StringBuilder();
+		
 		/* Always add a feature_id column to table and gpkg_data_columns
 		 * to enable WFS (and similar) IDs to be re-created when reading back 
 		 * out of the table */
-		String fields = ", ["+featureFieldID+"] TEXT";
+		fields.append(", [").append(featureFieldName).append("] TEXT");
 		dataColumnDefs.add(
 				"INSERT INTO gpkg_data_columns (table_name, column_name, name, title) "+
-				" VALUES ('"+tableName+"','"+featureFieldID+"','FeatureID', 'FeatureID');");
+				" VALUES ('"+tableName+"','"+featureFieldName+"','FeatureID', 'FeatureID');");
 		
 		/* We always add full descriptions into GpkgDataColumns for each
 		 * attribute even though its optional */
@@ -179,7 +183,7 @@ public class FeaturesTable extends GpkgTable {
 			}
 			
 			// The insertion text
-			fields+=", ["+atName.getLocalPart() + "] " + geoPackage.encodeType( aType.getBinding() );
+			fields.append(", [").append(atName.getLocalPart()).append("] ").append(geoPackage.encodeType( aType.getBinding()) );
 			
 			// Data columns definitions...
 			//table_name, column_name, name, title, description, mime_type, constraint_name
@@ -206,10 +210,9 @@ public class FeaturesTable extends GpkgTable {
 		description = description==null ? "" : description.toString();
 		
 		// Create table
-		String tableDef = "CREATE TABLE ["+tableName+"] ( "+
-			"id INTEGER PRIMARY KEY AUTOINCREMENT, ["+
-			geomDescriptor.getLocalName() + "] GEOMETRY"+
-			fields +");";
+		String tableDef = String.format(
+				"CREATE TABLE [%s] (id INTEGER PRIMARY KEY AUTOINCREMENT, [%s] GEOMETRY %s);",
+				tableName, geomDescriptor.getLocalName(), fields.toString() );
 
 		// Geometry columns
 		raw = 	"INSERT INTO gpkg_geometry_columns (table_name, column_name, geometry_type_name, srs_id, z, m) "+
@@ -237,16 +240,47 @@ public class FeaturesTable extends GpkgTable {
 				bbox.getMaxY(),
 				srsID );
 
+		/* Create spatial index? 
+		 * TODO: This is un-tested and the functions in the trigger definitions are not yet
+		 * implemented */
+		boolean doSpatialIndex = GeoPackage.CREATE_RTREE_FOR_FEATURES && geoPackage.getDatabase().hasRTreeEnabled();
+		String[] rTreeDefs = new String[2 + GpkgTriggers.SPATIAL_TRIGGERS.length];
+		if (doSpatialIndex) {
+			String column = geomDescriptor.getLocalName();
+			
+			rTreeDefs[0] = String.format("CREATE VIRTUAL TABLE rtree_%s_%s USING "+
+					"rtree(id, minx, maxx, miny, maxy)", tableName, geomDescriptor.getLocalName() );
+			rTreeDefs[1] = String.format("INSERT INTO %s (table_name, column_name, extension_name, definition, scope) VALUES "+
+					"('%s', '%s', 'gpkg_rtree_index', 'GeoPackage 1.0 Specification Annex M', 'write-only');",
+					GpkgExtensions.TABLE_NAME, tableName, column);
+			
+			// For each defined trigger
+			for (int i=0; i < GpkgTriggers.SPATIAL_TRIGGERS.length; i++) {
+				rTreeDefs[i + 2] = MessageFormat.format(GpkgTriggers.SPATIAL_TRIGGERS[i], tableName, column, "id");
+			}
+
+		}
 		
 		// Execute the commands as a single transaction to allow for rollback...
-		String[] statements = new String[dataColumnDefs.size()+3];
+		int offset = 4;
+		String[] statements = new String[dataColumnDefs.size() + offset];
 		statements[0] = tableDef;
 		statements[1] = geomDef;
 		statements[2] = contentsDef;
-		for (int s=3; s<dataColumnDefs.size()+3; s++) {
-			statements[s] = dataColumnDefs.get(s-3);
+		statements[3] = String.format("CREATE UNIQUE INDEX '%s_fid' ON [%s] ([%s] ASC);",
+								tableName, tableName, featureFieldName);
+		for (int s=offset; s<dataColumnDefs.size()+offset; s++) {
+			statements[s] = dataColumnDefs.get(s-offset);
 		}
-
+		if (doSpatialIndex) {
+			// Execute together, or separate??
+			String[] tmp = new String[statements.length+rTreeDefs.length];
+			System.arraycopy(statements, 0, tmp, 0, statements.length);
+			System.arraycopy(rTreeDefs, 0, tmp, statements.length, rTreeDefs.length);
+			statements =  tmp;
+		}
+		
+		
 		boolean success = geoPackage.getDatabase().execSQLWithRollback(statements);
 		
 		// Get the information back from DB
@@ -290,7 +324,8 @@ public class FeaturesTable extends GpkgTable {
 		/* Get extended information about each field for this table from GpkgDataColumns.
 		 * There may or may not be column definitions in GpkgDataColumns */
 		Map<String, FeatureField> dataColumns = new HashMap<String, FeatureField>();
-		ICursor dcCursor = geoPackage.getSystemTable(GpkgDataColumns.TABLE_NAME).query(geoPackage, null, "table_name='"+tableName+"'");
+		ICursor dcCursor = geoPackage.getSystemTable(GpkgDataColumns.TABLE_NAME)
+				.query(geoPackage, null, "table_name='"+tableName+"'");
 		
 		if (dcCursor!=null) {
 			while (dcCursor.moveToNext()) {
@@ -308,9 +343,9 @@ public class FeaturesTable extends GpkgTable {
 				
 				dataColumns.put(fName, fField);
 			}
-			
+			dcCursor.close();
 		}
-		dcCursor.close();
+		
 		
 		/* Go through the table fields ( from getContents() ) and update with the additional info
 		 * from GpkgDataColumns */
@@ -327,13 +362,28 @@ public class FeaturesTable extends GpkgTable {
 			
 		}
 		
-		// Finally get the geometry info on to this table
+		// Get the geometry info on to this table
 		try {
 			getGeometryInfo();
 		} catch (Exception e) {
 			e.printStackTrace();
 		}
 		
+
+	}
+	/** Is the passed feature in this table?
+	 * The query is based on {@link SimpleFeature#getID()} = featureFieldName.
+	 * 
+	 * @param simpleFeature The feature to check
+	 * @return True if in the table
+	 */
+	public boolean isFeatureInTable(SimpleFeature simpleFeature) {
+		ICursor ic = this.query(geoPackage, 
+				new String[]{"id",featureFieldName}, featureFieldName+"='"+simpleFeature.getID()+"';");
+		boolean inDb = ic.moveToFirst();
+		ic.close();
+		
+		return inDb;
 	}
 
 	/** Get all geometry information for this table
@@ -354,8 +404,8 @@ public class FeaturesTable extends GpkgTable {
 		if (gRecord==null)
 			throw new Exception("No geometry field definition for "+tableName);
 		
-		geometryInfo.columnName = gRecord.getField(0, "column_name");
-		geometryInfo.geometryTypeName = gRecord.getField(0, "geometry_type_name");
+		geometryInfo.columnName = gRecord.getFieldString(0, "column_name");
+		geometryInfo.geometryTypeName = gRecord.getFieldString(0, "geometry_type_name");
 		geometryInfo.srsID = gRecord.getFieldInt(0, "srs_id");
 		int z = gRecord.getFieldInt(0, "z");
 		if (z!=-1) geometryInfo.z = z;
@@ -368,8 +418,20 @@ public class FeaturesTable extends GpkgTable {
 		if (sRecord==null || sRecord.get(0)==null)
 			throw new Exception("SRS "+geometryInfo.srsID+" not defined in GeoPackage");
 		
-		geometryInfo.organization = sRecord.getField(0, "organization");
-		geometryInfo.definition = sRecord.getField(0, "definition");
+		geometryInfo.organization = sRecord.getFieldString(0, "organization");
+		geometryInfo.definition = sRecord.getFieldString(0, "definition");
+		
+		// Check extensions for spatial index
+		Extension[] ext = getExtensionInfo(geoPackage);
+		if (ext!=null) {
+			for (Extension e : ext) {
+				if (	e.columnName.equals(geometryInfo.columnName) && 
+						e.extensionName.equals("gpkg_rtree_index")) {
+					geometryInfo.spatialIndex = true;
+					break;
+				}
+			}
+		}
 		
 		return geometryInfo;
 	}
@@ -396,7 +458,7 @@ public class FeaturesTable extends GpkgTable {
 		getContents();
 		return super.getLastChange();
 	}
-	
+
 	/** A class for storing FeaturesTable geometry information
 	 * 
 	 *
@@ -409,32 +471,38 @@ public class FeaturesTable extends GpkgTable {
 		protected int srsID = -1;
 		protected int z = GeoPackage.Z_M_VALUES_OPTIONAL;
 		protected int m = GeoPackage.Z_M_VALUES_OPTIONAL;
+		protected boolean spatialIndex = false;
 		
 		public GeometryInfo() {
 		}
 
-		/**
+		/** Get the feature table's geometry column name
+		 * 
 		 * @return the columnName
 		 */
 		public String getColumnName() {
 			return columnName;
 		}
 
-		/**
+		/** Get the type of geometry from Table 42 or Table 43 in Annex E 
+		 * of the specification.
+		 * 
 		 * @return the geometryTypeName
 		 */
 		public String getGeometryTypeName() {
 			return geometryTypeName;
 		}
 
-		/**
+		/** Get the CRS organization name.
+		 * 
 		 * @return the organization
 		 */
 		public String getOrganization() {
 			return organization;
 		}
 
-		/**
+		/** Get the WKT representation of the projection definition
+		 * 
 		 * @return the definition
 		 */
 		public String getDefinition() {
@@ -448,18 +516,30 @@ public class FeaturesTable extends GpkgTable {
 			return srsID;
 		}
 
-		/**
+		/** Get whether the Height dimension is prohibited, mandatory or optional.
+		 * 
 		 * @return the z
 		 */
-		public int getZ() {
+		public int getZOption() {
 			return z;
 		}
 
-		/**
+		/** Get whether the Measure dimension is prohibited, mandatory or optional.
+		 * 
 		 * @return the m
 		 */
-		public int getM() {
+		public int getMOption() {
 			return m;
+		}
+
+		/** Does this Geometry have an R*Tree spatial index?
+		 * Note this doesn't necessarily mean that the index can be used
+		 * 
+		 * @return the spatialIndex
+		 * @see {@link ISQLDatabase#hasRTreeEnabled()}
+		 */
+		public boolean hasSpatialIndex() {
+			return spatialIndex;
 		}
 		
 		

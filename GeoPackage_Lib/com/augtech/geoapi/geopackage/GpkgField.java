@@ -43,7 +43,7 @@ public class GpkgField implements Cloneable {
 	 * @param fieldType
 	 */
 	public GpkgField(String fieldName, String fieldType) {
-		this(fieldName, fieldType, null);
+		this(fieldName, fieldType, null, null);
 	}
 	/**
 	 * 
@@ -52,7 +52,7 @@ public class GpkgField implements Cloneable {
 	 * @param options
 	 */
 	public GpkgField(String fieldName, String fieldType, String options) {
-		this(fieldName, fieldType, null, null);
+		this(fieldName, fieldType, options, null);
 	}
 	/**
 	 * 

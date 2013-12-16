@@ -61,9 +61,9 @@ public class GpkgDataColumnConstraint extends GpkgTable {
 					new GpkgField("constraint_type", "TEXT", "NOT NULL", "'"+TYPE_ENUM+"'"),
 					new GpkgField("value", "TEXT"),
 					new GpkgField("min", "NUMERIC"),
-					new GpkgField("minIsInclusive", "BOOLEAN", null, "0"),
+					new GpkgField("minIsInclusive", "BOOLEAN", null, null),
 					new GpkgField("max", "NUMERIC"),
-					new GpkgField("maxIsInclusive", "BOOLEAN", null, "0"),
+					new GpkgField("maxIsInclusive", "BOOLEAN", null, null),
 					new GpkgField("description", "TEXT")
 				},
 				new String[]{"CONSTRAINT gdcc_ntv UNIQUE (constraint_name, constraint_type, value)"}
@@ -102,9 +102,9 @@ public class GpkgDataColumnConstraint extends GpkgTable {
 		public String constraintType = TYPE_ENUM;
 		public String[] values = null;
 		public float min = Float.NaN;
-		public boolean minIsInclusive = false;
+		public boolean minIsInclusive;
 		public float max = Float.NaN;
-		public boolean maxIsInclusive = false;
+		public boolean maxIsInclusive;
 		public String[] descriptions = null;
 		
 		/** Build a new constraint from GpkgRecords. Only record 0 is used for type
@@ -113,25 +113,27 @@ public class GpkgDataColumnConstraint extends GpkgTable {
 		 * @param fieldSet The Map<String, GpkgField> to build the constraint from
 		 */
 		public DataColumnConstraint(GpkgRecords records) {
-			this.constraintName = records.getField(0, "constraint_name");
-			this.constraintType = records.getField(0, "constraint_type");
+			this.constraintName = records.getFieldString(0, "constraint_name");
+			this.constraintType = records.getFieldString(0, "constraint_type");
 
-			this.min = records.getFieldFloat(0, "min");
-			this.minIsInclusive = records.getFieldBool(0, "minIsInclusive");
-			this.max = records.getFieldFloat(0, "max");
-			this.maxIsInclusive = records.getFieldBool(0, "maxIsInclusive");
-			
-			if (constraintType.equals(TYPE_GLOB)) {
+			if (constraintType.equals(TYPE_RANGE)) {
 				
-				this.values = new String[]{records.getField(0, "value")};
+				this.min = records.getFieldFloat(0, "min");
+				this.max = records.getFieldFloat(0, "max");
+				this.minIsInclusive = records.getFieldBool(0, "minIsInclusive");
+				this.maxIsInclusive = records.getFieldBool(0, "maxIsInclusive");
+				
+			} else if (constraintType.equals(TYPE_GLOB)) {
+				
+				this.values = new String[]{records.getFieldString(0, "value")};
 				
 			} else {
 				
 				this.values = new String[records.size()];
 				this.descriptions = new String[records.size()];
 				for (int i=0;i<records.size(); i++) {
-					this.values[i] = records.getField(i, "value");
-					this.descriptions[i] = records.getField(i, "Description");
+					this.values[i] = records.getFieldString(i, "value");
+					this.descriptions[i] = records.getFieldString(i, "Description");
 				}
 				
 			}

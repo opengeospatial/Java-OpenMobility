@@ -89,6 +89,13 @@ public interface ISQLDatabase {
 	 */
 	public long doInsert(String table, Map<String, Object> values);
 	
+	/** Does the underlying SQLite implementation have R*Tree indexing
+	 * available? 
+	 * 
+	 * @return
+	 * @see http://www.sqlite.org/rtree.html
+	 */
+	public boolean hasRTreeEnabled();
 	/** Is the database connection currently open?
 	 * 
 	 * @return True if it is

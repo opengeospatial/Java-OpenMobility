@@ -15,19 +15,24 @@
  */
 package com.augtech.geoapi.geopackage;
 
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Date;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 import org.opengis.geometry.BoundingBox;
 
 import com.augtech.geoapi.geometry.BoundingBoxImpl;
+import com.augtech.geoapi.geopackage.GeoPackage.JavaType;
 import com.augtech.geoapi.geopackage.table.FeatureField;
 import com.augtech.geoapi.geopackage.table.FeaturesTable;
 import com.augtech.geoapi.geopackage.table.GpkgContents;
 import com.augtech.geoapi.geopackage.table.GpkgDataColumnConstraint;
+import com.augtech.geoapi.geopackage.table.GpkgExtensions;
+import com.augtech.geoapi.geopackage.table.GpkgExtensions.Extension;
 import com.augtech.geoapi.geopackage.table.TilesTable;
 import com.augtech.geoapi.referncing.CoordinateReferenceSystemImpl;
 
@@ -55,13 +60,15 @@ public abstract class GpkgTable {
 	protected String tableType = TABLE_TYPE_SYSTEM;
 	String[] constraints = null;
 	private StringBuffer sb = new StringBuffer();
-	private boolean hasContentInfo = false;
+	private boolean hasContentInfo = false, hasExtensionInfo = false;
 	
 	// gpkg_contents info
 	protected String identifier = "";
 	protected String description = "";
 	private Date lastChange = null;
 	private BoundingBox bbox = new BoundingBoxImpl("EPSG:4326");
+	/** An array of extensions applicable to this table */
+	protected Extension[] gpkgExtensions = null;
 	
 	/** Create a new instance of a GpkgTable (this will not create the table in 
 	 * the GeoPackage, only a class for handling a table).
@@ -185,11 +192,11 @@ public abstract class GpkgTable {
 			if (contents==null || contents.size()==0) 
 				throw new Exception("Table "+tableName+" not defined in "+GpkgContents.TABLE_NAME);
 			
-			this.identifier = contents.getField(0, "identifier");
-			this.description = contents.getField(0, "description");
-			String lc = contents.getField(0, "last_change");
+			this.identifier = contents.getFieldString(0, "identifier");
+			this.description = contents.getFieldString(0, "description");
+			String lc = contents.getFieldString(0, "last_change");
 			if (!lc.equals("")) {
-				this.lastChange = DateUtil.deserializeDateTime( contents.getField(0, "last_change") );
+				this.lastChange = DateUtil.deserializeDateTime( contents.getFieldString(0, "last_change") );
 			}
 			
 			bbox = new BoundingBoxImpl(
@@ -201,6 +208,45 @@ public abstract class GpkgTable {
 						);
 			hasContentInfo = true;
 		}
+		
+		getExtensionInfo(geoPackage);
+
+	}
+	/** Get any GpkgExtension information for this table.
+	 * 
+	 * @return An array of Extension's relating to this table, or <code>Null</code>
+	 * if there isn't any
+	 */
+	public Extension[] getExtensionInfo(GeoPackage geoPackage) {
+		
+		if (gpkgExtensions==null && !hasExtensionInfo) {
+			GpkgTable extTable = geoPackage.getSystemTable(GpkgExtensions.TABLE_NAME);
+			if (!extTable.isTableInDB(geoPackage)) {
+				hasExtensionInfo=true;
+				return null;
+			}
+			
+			ICursor exCursor = extTable.query(geoPackage, null, "table_name='"+tableName+"'");
+			if (exCursor!=null) {
+				this.gpkgExtensions = new Extension[exCursor.getCount()];
+				int ge = 0;
+				while (exCursor.moveToNext()) {
+					Extension ext = new Extension();
+					ext.tableName = tableName;
+					ext.columnName = exCursor.getString( exCursor.getColumnIndex("column_name") );
+					ext.extensionName = exCursor.getString( exCursor.getColumnIndex("extension_name") );
+					ext.definition = exCursor.getString( exCursor.getColumnIndex("definition") );
+					ext.scope = exCursor.getString( exCursor.getColumnIndex("scope") );
+					
+					this.gpkgExtensions[ge] = ext;
+					ge++;
+				}
+				exCursor.close();
+			}
+			hasExtensionInfo = true;
+		}
+
+		return this.gpkgExtensions;
 	}
 	/** Get the defined primary key field name for this table
 	 * 
@@ -225,7 +271,9 @@ public abstract class GpkgTable {
 	public String getTableType() {
 		return tableType;
 	}
-	/** Get the number of records within this table.
+	/** Get the number of records within this table. Note that the table
+	 * is queried every time as records could be inserted, deleted by other
+	 * methods.
 	 * 
 	 * @param geoPackage
 	 * @return The count of records or -1 if the table does not exist.
@@ -254,6 +302,7 @@ public abstract class GpkgTable {
 	public long insert(GeoPackage geoPackage, Map<String, Object> values) {
 		return geoPackage.getDatabase().doInsert("["+tableName+"]", values);
 	}
+
 	/** Issue a raw query on this table for a {@linkplain ICursor}
 	 * 
 	 * @param geoPackage The GeoPackage to query
@@ -264,7 +313,7 @@ public abstract class GpkgTable {
 	 */
 	public ICursor query(GeoPackage geoPackage, String[] columns, String strWhere) {
 		
-		return geoPackage.getDatabase().doQuery("["+tableName+"]", null, strWhere);
+		return geoPackage.getDatabase().doQuery("["+tableName+"]", columns, strWhere);
 		
 	}
 	/** Get a list of GpkgRecords from this table matching the where clause. It
@@ -281,54 +330,92 @@ public abstract class GpkgTable {
 	 */
 	public GpkgRecords query(GeoPackage geoPackage, String strWhere) throws Exception {
 		
-		GpkgRecords records = new GpkgRecords();
+		String stmt = "SELECT * FROM ["+tableName+"]";
+		if (strWhere!=null && !strWhere.equals("")) stmt+=" WHERE "+strWhere;
 		
+		return rawQuery(geoPackage, stmt);
+	}
+	/** Get a list of GpkgRecords from this table matching using the full SQL statement. It
+	 * is suggested that sub-classes override this method to provide suitable
+	 * where clauses. This method requires a valid set of GpkgField's defined for 
+	 * the table.
+	 * 
+	 * @param geoPackage The GeoPackage to query
+	 * @param sqlStmt A valid SQL statement. (No checks are performed on this)
+	 * @return A list containing a map of {@link GpkgField}. Each member of the list
+	 * is one record. If the query could not be executed then an empty list is returned.
+	 * @throws Exception 
+	 */
+	public GpkgRecords rawQuery(GeoPackage geoPackage, String sqlStmt) throws Exception {
+
 		// Populate field info (only applicable for non-system tables)
 		getContents(geoPackage);
-		
-		ICursor cur = query(geoPackage, null, strWhere);
-		
-		if (cur==null) return records;
-		
-		GpkgField thisField = null;
-		Map<String, GpkgField> thisRec = null;
-		String fieldType = "", fieldName = "";
 
-		/* Is there a better (faster/ less memory etc) method of constructing records
-		 * than using a Map<> and clone-ing fields, whilst maintaining accessibility
-		 * to the field data? Have to try with several 1000's records */
+		ICursor cur = geoPackage.getDatabase().doRawQuery(sqlStmt);
+
 		
-		// For each record in cursor
-		while (cur.moveToNext()) {
-			thisRec = new HashMap<String, GpkgField>();
+		Map<String, Integer> fieldIdx = new HashMap<String, Integer>();
+		List<GpkgField> fieldList = new ArrayList<GpkgField>();
+		GpkgRecords records = null;
+		ArrayList<Object> thisRec = null;
+		String fieldType = "";
+		JavaType jType = null;
+		List<JavaType> jTypeList = new ArrayList<JavaType>();
+		
+		// Get details of each column
+		int colIdx = 0;
+		for (String col : cur.getColumnNames()) {
 			
+			// Add field to record-set index
+			fieldIdx.put(col, colIdx);
+			GpkgField gf = fields.get(col).clone();
+			fieldList.add( gf );
+			
+			// A simple list of the mapped Java type
+			jTypeList.add( geoPackage.sqlTypeMap.get( gf.getFieldType().toLowerCase() ) );
+			colIdx++;
+		}
+		
+		// The result set
+		records = new GpkgRecords(fieldIdx, fieldList);
+		
+		// For each record in cursor..
+		while (cur.moveToNext()) {
+			thisRec = new ArrayList<Object>();
+
 			// For each column in cursor
 			for (int idx=0;idx < cur.getColumnCount(); idx++) {
 				
-				fieldName = cur.getColumnName(idx);
+				jType = jTypeList.get(idx);
 				
-				thisField = fields.get(fieldName).clone();
-				if (thisField==null) continue;// No real reason this should now be the case!
+				if (jType==null || jType==JavaType.UNKNOWN) 
+					throw new IllegalArgumentException("Unknown SQL data type '"+fieldType+"'");
 				
-				fieldType = thisField.getFieldType();
-
-				if (fieldType.equals("TEXT") || fieldType.equals("DATE") || fieldType.equals("DATETIME") || fieldType.equals("TIME")) {
-					thisField.value = cur.getString(idx);
-				} else if (fieldType.equals("BOOLEAN") ) {
-					thisField.value = cur.getBoolean(idx);
-				} else if (fieldType.equals("BLOB") || fieldType.equals("GEOMETRY")) {
-					thisField.value = cur.getBlob(idx);
-				} else if (fieldType.equals("INTEGER") ) {
-					thisField.value = cur.getInt(idx);
-				} else if (fieldType.equals("DOUBLE") ) {
-					thisField.value = cur.getDouble(idx);
-				} else if (fieldType.equals("FLOAT") ) {
-					thisField.value = cur.getFloat(idx);
+				switch (jType) {
+				case INTEGER:
+					thisRec.add( cur.getInt(idx) );
+					break;
+				case STRING:
+					thisRec.add( cur.getString(idx) );
+					break;
+				case BOOLEAN:
+					thisRec.add( cur.getBoolean(idx) );
+					break;
+				case FLOAT:
+					thisRec.add( cur.getFloat(idx) );
+					break;
+				case DOUBLE:
+					thisRec.add( cur.getDouble(idx) );
+					break;
+				case BYTE_ARR:
+					thisRec.add( cur.getBlob(idx) );
+					break;
 				}
 				
-				thisRec.put(fieldName, thisField);
-			}
-			records.add(thisRec);
+			} // Next column
+			
+			thisRec.trimToSize();
+			records.add( thisRec );
 		}
 		
 		cur.close();
@@ -348,6 +435,7 @@ public abstract class GpkgTable {
 				"gpkg_contents", 
 				new String[]{"table_name"},
 				"table_name='"+tableName+"';");
+		
 		if( c.moveToFirst() ) tExists = c.getString(0).equals(tableName);
 		c.close();
 		return tExists;
@@ -519,4 +607,5 @@ public abstract class GpkgTable {
 		return true;
 	}
 	
+
 }

@@ -35,9 +35,16 @@ public class GpkgSpatialRefSys extends GpkgTable {
 	public static final String[] INSERT_DEFAULT_SPATIAL_REF_SYS = new String[] {
 		String.format(STMT_INSERT, "Undefined Geographic", 0, "NONE", 0, "undefined", null),
 		String.format(STMT_INSERT, "Undefined Cartesian", -1, "NONE", -1, "undefined", null),
-		String.format(STMT_INSERT, "WGS84", 4326, "EPSG", 4326, "+proj=longlat +ellps=WGS84 +datum=WGS84 +no_defs  <>", "WGS84"),
-		String.format(STMT_INSERT, "British National Grid", 27700, "EPSG", 27700, "+proj=tmerc +lat_0=49 +lon_0=-2 +k=0.9996012717 +x_0=400000 +y_0=-100000 +ellps=airy +datum=OSGB36 +units=m +no_defs  <>", "OSGB 1936 / British National Grid"),
-		String.format(STMT_INSERT, "Pseudo Mercator", 3857, "EPSG", 3857, "+proj=merc +a=6378137 +b=6378137 +lat_ts=0.0 +lon_0=0.0 +x_0=0.0 +y_0=0 +k=1.0 +units=m +nadgrids=@null +wktext  +no_defs <>", "WGS 84 - Spherical Mercator")
+		String.format(STMT_INSERT, "WGS 84", 4326, "EPSG", 4326, "GEOGCS[\"WGS 84\", DATUM[\"WGS_1984\", SPHEROID[\"WGS 84\",6378137,298.257223563, AUTHORITY[\"EPSG\",\"7030\"]]"+
+				", AUTHORITY[\"EPSG\",\"6326\"]],PRIMEM[\"Greenwich\",0,AUTHORITY[\"EPSG\",\" 8901\"]],UNIT[\"degree\",0.0174532925199433,AUTHORITY[\"EPSG\",\"9122\"]], AUTHORITY[\"EPSG\",\"4326\"]]", null),
+		String.format(STMT_INSERT, "British National Grid", 27700, "EPSG", 27700, "PROJCS[\"OSGB 1936 / British National Grid\",GEOGCS[\"OSGB 1936\",DATUM[\"OSGB_1936\","+
+				"SPHEROID[\"Airy 1830\",6377563.396,299.3249646,AUTHORITY[\"EPSG\",\"7001\"]],AUTHORITY[\"EPSG\",\"6277\"]],PRIMEM[\"Greenwich\",0,AUTHORITY[\"EPSG\",\"8901\"]],UNIT[\"degree\",0.01745329251994328,AUTHORITY[\"EPSG\",\"9122\"]]"+
+				",AUTHORITY[\"EPSG\",\"4277\"]],UNIT[\"metre\",1,AUTHORITY[\"EPSG\",\"9001\"]],PROJECTION[\"Transverse_Mercator\"],PARAMETER[\"latitude_of_origin\",49],PARAMETER[\"central_meridian\",-2],PARAMETER[\"scale_factor\",0.9996012717],"+
+				"PARAMETER[\"false_easting\",400000],PARAMETER[\"false_northing\",-100000],AUTHORITY[\"EPSG\",\"27700\"],AXIS[\"Easting\",EAST],AXIS[\"Northing\",NORTH]]", "OSGB 1936 / British National Grid"),
+		String.format(STMT_INSERT, "Pseudo-Mercator", 3857, "EPSG", 3857, "PROJCS[\"WGS 84 / Pseudo-Mercator\",GEOGCS[\"Popular Visualisation CRS\",DATUM[\"Popular_Visualisation_Datum\","+
+				"SPHEROID[\"Popular Visualisation Sphere\",6378137,0,AUTHORITY[\"EPSG\",\"7059\"]],TOWGS84[0,0,0,0,0,0,0],AUTHORITY[\"EPSG\",\"6055\"]],PRIMEM[\"Greenwich\",0,AUTHORITY[\"EPSG\",\"8901\"]],UNIT[\"degree\",0.01745329251994328,"+
+				"AUTHORITY[\"EPSG\",\"9122\"]],AUTHORITY[\"EPSG\",\"4055\"]],UNIT[\"metre\",1,AUTHORITY[\"EPSG\",\"9001\"]],PROJECTION[\"Mercator_1SP\"],PARAMETER[\"central_meridian\",0],PARAMETER[\"scale_factor\",1],PARAMETER[\"false_easting\",0],"+
+				"PARAMETER[\"false_northing\",0],AUTHORITY[\"EPSG\",\"3785\"],AXIS[\"X\",EAST],AXIS[\"Y\",NORTH]]", "WGS 84 - Spherical Mercator")
 	};
 	
 	/**

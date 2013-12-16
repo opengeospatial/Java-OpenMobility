@@ -18,10 +18,8 @@ package com.augtech.geoapi.geopackage.geometry;
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
 
-import org.opengis.geometry.BoundingBox;
-
-import com.augtech.geoapi.geometry.BoundingBoxImpl;
-import com.augtech.geoapi.referncing.CoordinateReferenceSystemImpl;
+import com.augtech.geoapi.geopackage.GeoPackage;
+import com.vividsolutions.jts.geom.Envelope;
 import com.vividsolutions.jts.geom.Geometry;
 import com.vividsolutions.jts.io.ByteOrderValues;
 
@@ -34,7 +32,7 @@ import com.vividsolutions.jts.io.ByteOrderValues;
 public abstract class GeometryDecoder {
 	protected byte[] geomData = null;
 	protected int gpkgVersion = 0;
-	protected BoundingBox bbox = null;
+	protected Envelope envelope = new Envelope();
 	protected boolean isEmpty = false;
 	protected boolean extendedGeom = false;
 	protected int srsID = -1;
@@ -51,6 +49,11 @@ public abstract class GeometryDecoder {
 	 * @throws IOException
 	 */
 	public GeometryDecoder setGeometryData(byte[] inputGeom) throws IOException {
+		
+		this.clear();
+		
+		if (inputGeom==null) throw new IllegalArgumentException("Geometry value is null");
+		
 		ByteArrayInputStream bais = new ByteArrayInputStream( inputGeom );
 		
 		// 'Magic' and version
@@ -60,6 +63,9 @@ public abstract class GeometryDecoder {
 		gpkgVaild = magic.equals("GP");
 
 		gpkgVersion = bais.read();
+		
+		if (gpkgVersion>GeoPackage.MAX_GPKG_VERSION)
+			throw new IllegalArgumentException("Geometry version is greater than supported version");
 		
 		// Decode header flags
 		int flags = bais.read();
@@ -96,42 +102,39 @@ public abstract class GeometryDecoder {
 			vals[i] = ByteOrderValues.getDouble(buffer, jtsByteOrder);
 		}
 		
-		/* We construct an Envelope from the header, but are not using as JTS will create an envelope
-		 * from the resulting geometry automatically. Note that JTS implementation only supports 2D 
-		 * envelopes anyway. */
+		// Construct the header defined envelope
 		if (vals!=null) {
-			bbox = new BoundingBoxImpl(vals[0], vals[1], vals[2], vals[3], 
-					new CoordinateReferenceSystemImpl(""+srsID));
-		} else {
-			bbox = new BoundingBoxImpl(""+srsID);
+			envelope.init(vals[0], vals[1], vals[2], vals[3]);
 		}
 		
 		int headerLength = 8+envBytes;
 		geomData = new byte[inputGeom.length-headerLength];
-		bais.read(geomData);
+		bais.read( geomData );
 
 		bais.close();
 		
 		return this;
 	}
+
 	/** Clear all byte data and reset to default values.
 	 * 
 	 */
 	public void clear() {
 		geomData = null;
 		gpkgVersion = 0;
-		bbox = null;
+		envelope.setToNull();
 		isEmpty = false;
 		extendedGeom = false;
 		srsID = -1;
 		byteOrder = 1;
 	}
-	/** Get the bounding box as defined in the Geometry header
+	/** Get the Envelope as defined in the Geometry header. Note this has no SRID 
+	 * set on it for performance reasons.
 	 * 
 	 * @return
 	 */
-	public BoundingBox getEnvelope() {
-		return bbox;
+	public Envelope getEnvelope() {
+		return envelope;
 	}
 	/** Get the GeoPacakge version as defined in the Geometry header
 	 * 

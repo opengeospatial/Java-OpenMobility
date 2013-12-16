@@ -54,7 +54,7 @@ public class GpkgMetaData extends GpkgTable {
 				new GpkgField[]{
 					new GpkgField("id", "INTEGER", "CONSTRAINT m_pk PRIMARY KEY ASC AUTOINCREMENT NOT NULL UNIQUE"),
 					new GpkgField("md_scope", "TEXT", "NOT NULL", "'dataset'"),
-					new GpkgField("metadata_standard_URI", "TEXT", "NOT NULL", "'http://schemas.opengis.net/iso/19139/'"),
+					new GpkgField("md_standard_URI", "TEXT", "NOT NULL", "'http://schemas.opengis.net/iso/19139/'"),
 					new GpkgField("mime_type", "TEXT", "NOT NULL", "'text/xml'"),
 					new GpkgField("metadata", "TEXT", "NOT NULL", "('')")
 				},

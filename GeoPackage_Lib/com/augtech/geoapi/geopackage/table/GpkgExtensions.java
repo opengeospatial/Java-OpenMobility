@@ -15,6 +15,10 @@
  */
 package com.augtech.geoapi.geopackage.table;
 
+import java.util.HashMap;
+import java.util.Map;
+
+import com.augtech.geoapi.geopackage.GeoPackage;
 import com.augtech.geoapi.geopackage.GpkgField;
 import com.augtech.geoapi.geopackage.GpkgTable;
 
@@ -40,6 +44,61 @@ public class GpkgExtensions extends GpkgTable {
 				new String[]{"CONSTRAINT ge_tce UNIQUE (table_name, column_name, extension_name)"}
 			);
 		
+	}
+	/** Insert a specific extension in to the GeoPackage. The #Extension will be validated
+	 * prior to insert.
+	 * 
+	 * @param geoPackage The GeoPackage to insert into
+	 * @param extension 
+	 * @return The row id of the new record or -1 if the Extension is not valid or the insert
+	 * failed.
+	 */
+	public long insert(GeoPackage geoPackage, Extension extension) {
+		
+		if (!extension.isValid()) return -1;
+		
+		Map<String, Object> values = new HashMap<String, Object>();
+		values.put("table_name", extension.tableName);
+		values.put("column_name", extension.columnName);
+		values.put("extension_name", extension.extensionName);
+		values.put("definition", extension.definition);
+		values.put("scope", extension.scope);
+		
+		return super.insert(geoPackage, values);
+	}
+	/** A class to hold gpkg_extension information
+	 * 
+	 *
+	 */
+	public static class Extension {
+		/** Name of the table that requires the extension. When NULL, the extension is required for 
+		 * the entire GeoPackage. SHALL NOT be NULL when the column_name is not NULL.*/
+		public String tableName = "";
+		/** Name of the column that requires the extension. 
+		 * When NULL, the extension is required for the entire table. */
+		public String columnName = "";
+		/** The case sensitive name of the extension that is required, 
+		 * in the form <author>_<extension name>. */
+		public String extensionName = "";
+		/** Definition of the extension in the form specified by the template in 
+		 * Annex I or reference thereto.*/
+		public String definition = "";
+		/** Indicates scope of extension effects on readers / writers: "read-write" or 
+		 * "write-only" in lowercase. */
+		public String scope = "";
+		
+		public Extension() {
+			
+		}
+		
+		/** Is this extension valid for GeoPackage insert?
+		 * 
+		 * @return
+		 */
+		public boolean isValid() {
+			// TODO: Validate the Extension
+			return true;
+		}
 	}
 }
 //public static final String CREATE_TABLE_GPKG_EXTENSIONS = "CREATE TABLE gpkg_extensions ( "+

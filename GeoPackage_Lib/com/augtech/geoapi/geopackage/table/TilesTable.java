@@ -209,30 +209,28 @@ public class TilesTable extends GpkgTable {
 		super.getContents(geoPackage);
 		
 		// Tile Matrix column details
-		GpkgRecords gRecord = geoPackage.getSystemTable(GpkgTileMatrix.TABLE_NAME)
+		GpkgRecords gRecords = geoPackage.getSystemTable(GpkgTileMatrix.TABLE_NAME)
 				.query(geoPackage, "table_name='"+tableName+"';");
 		
-		if (gRecord==null)
+		if (gRecords==null)
 			throw new Exception("No tile matrix definition for "+tableName);
 		
 		Map<Integer, Collection<GpkgField>> tm = new HashMap<Integer, Collection<GpkgField>>();
-		for (int i=0; i<gRecord.size(); i++) {
+		for (int i=0; i<gRecords.size(); i++) {
 			
-			tm.put(
-					gRecord.getFieldInt(i, "zoom_level"), 
-					gRecord.get(i).values());
+			tm.put(	gRecords.getFieldInt(i, "zoom_level"), gRecords.getFields(i) );
 		}
 		
 		// Get bounds from tile_matrix_set
-		gRecord = geoPackage.getSystemTable(GpkgTileMatrixSet.TABLE_NAME)
+		gRecords = geoPackage.getSystemTable(GpkgTileMatrixSet.TABLE_NAME)
 						.query(geoPackage, "table_name='"+tableName+"';");
 		
 		BoundingBox tmBox = new BoundingBoxImpl(
-				gRecord.getFieldDouble(0,"min_x"),
-				gRecord.getFieldDouble(0,"max_x"),
-				gRecord.getFieldDouble(0,"min_y"),
-				gRecord.getFieldDouble(0,"max_y"),
-				new CoordinateReferenceSystemImpl(""+gRecord.getFieldInt(0, "srs_id"))
+				gRecords.getFieldDouble(0,"min_x"),
+				gRecords.getFieldDouble(0,"max_x"),
+				gRecords.getFieldDouble(0,"min_y"),
+				gRecords.getFieldDouble(0,"max_y"),
+				new CoordinateReferenceSystemImpl(""+gRecords.getFieldInt(0, "srs_id"))
 				);
 
 		

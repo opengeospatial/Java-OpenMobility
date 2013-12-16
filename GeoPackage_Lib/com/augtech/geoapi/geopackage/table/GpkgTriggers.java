@@ -104,7 +104,7 @@ public class GpkgTriggers {
 					"END";
 	
 	/** An array of all GeoPackage trigger definitions from Annex D of the Spec */
-	public static final String[] ALL_TRIGGERS = new String[] {
+	public static final String[] ALL_STANDARD_TRIGGERS = new String[] {
 		CREATE_TRIGGER_GPKG_TILE_MATRIX_ZOOM_LEVEL_INSERT,
 		CREATE_TRIGGER_GPKG_TILE_MATRIX_ZOOM_LEVEL_UPDATE,
 		CREATE_TRIGGER_GPKG_TILE_MATRIX_MATRIX_WIDTH_INSERT,
@@ -117,4 +117,65 @@ public class GpkgTriggers {
 		CREATE_TRIGGER_GPKG_TILE_MATRIX_PIXEL_Y_SIZE_UPDATE
 	};
 	
+	/** Formatted String to create one of the Spatial index triggers. {0}=Table Name, {1}=Column Name, {2}=Index Column name 
+	 * Conditions: Insertion of non-empty geometry Actions   : Insert record into rtree */
+	public static final String CREATE_TRIGGER_SPATIAL_INSERT = "CREATE TRIGGER rtree_{0}_{1}_insert AFTER INSERT ON {0}" +
+			" WHEN (new.{1} NOT NULL AND NOT ST_IsEmpty(NEW.{1}))" +
+			" BEGIN INSERT OR REPLACE INTO rtree_{0}_{1} VALUES (" +
+			" NEW.{2}, ST_MinX(NEW.{1}), ST_MaxX(NEW.{1}), ST_MinY(NEW.{1}), ST_MaxY(NEW.{1})"+
+			" ); END;";
+	
+	/** Formatted String to create one of the Spatial index triggers. {0}=Table Name, {1}=Column Name, {2}=Index Column name
+	 * Conditions: Update of geometry column to non-empty geometry 
+	 * No row ID change Actions   : Update record in rtree */
+	public static final String CREATE_TRIGGER_SPATIAL_UPDATE1 = "CREATE TRIGGER rtree_{0}_{1}_update1 AFTER UPDATE OF {1} ON {0}" +
+			" WHEN OLD.{2} = NEW.{2} AND (NEW.{1} NOTNULL AND NOT ST_IsEmpty(NEW.{1}))" +
+			" BEGIN INSERT OR REPLACE INTO rtree_{0}_{1} VALUES (" +
+			" NEW.{2}, ST_MinX(NEW.{1}), ST_MaxX(NEW.{1}), ST_MinY(NEW.{1}), ST_MaxY(NEW.{1})"+
+			" ); END;";
+	
+	/** Formatted String to create one of the Spatial index triggers. {0}=Table Name, {1}=Column Name, {2}=Index Column name
+	 * Conditions: Update of geometry column to empty geometry
+	 *  No row ID change  Actions   : Remove record from rtree */
+	public static final String CREATE_TRIGGER_SPATIAL_UPDATE2 = "CREATE TRIGGER rtree_{0}_{1}_update2 AFTER UPDATE OF {1} ON {0}" +
+			" WHEN OLD.{2} = NEW.{2} AND (NEW.{1} ISNULL OR ST_IsEmpty(NEW.{1}))" +
+			" BEGIN DELETE FROM rtree_{0}_{1} WHERE id = OLD.{2}; END;";
+	
+	/** Formatted String to create one of the Spatial index triggers. {0}=Table Name, {1}=Column Name, {2}=Index Column name
+	 * Conditions: Update of any column
+               Row ID change
+               Non-empty geometry
+   		Actions   : Remove record from rtree for old rowid
+               Insert record into rtree for new rowid  */
+	public static final String CREATE_TRIGGER_SPATIAL_UPDATE3 = "CREATE TRIGGER rtree_{0}_{1}_update3 AFTER UPDATE OF {1} ON {0}" +
+			" WHEN OLD.{2} != NEW.{2} AND (NEW.{2} NOTNULL AND NOT ST_IsEmpty(NEW.{2}))" +
+			" BEGIN DELETE FROM rtree_{0}_{1} WHERE id = OLD.{2};" +
+			" INSERT OR REPLACE INTO rtree_{0}_{1} VALUES (" +
+			" NEW.{2}, ST_MinX(NEW.{1}), ST_MaxX(NEW.{1}), ST_MinY(NEW.{1}), ST_MaxY(NEW.{1})"+
+			" ); END;";
+	
+	/** Formatted String to create one of the Spatial index triggers. {0}=Table Name, {1}=Column Name, {2}=Index Column name
+	 * Conditions: Update of any column
+               Row ID change 
+               Empty geometry
+   		Actions   : Remove record from rtree for old and new rowid */
+	public static final String CREATE_TRIGGER_SPATIAL_UPDATE4 = "CREATE TRIGGER rtree_{0}_{1}_update4 AFTER UPDATE ON {0}" +
+			" WHEN OLD.{2} != NEW.{2} AND (NEW.{1} ISNULL OR ST_IsEmpty(NEW.{1}))" +
+			" BEGIN DELETE FROM rtree_{0}_{1} WHERE id IN (OLD.{2}, NEW.{2}); END;";
+	
+	/** Formatted String to create one of the Spatial index triggers. {0}=Table Name, {1}=Column Name, {2}=Index Column name
+	 * Conditions: Row deleted  Actions   : Remove record from rtree for old rowid */
+	public static final String CREATE_TRIGGER_SPATIAL_DELETE = "CREATE TRIGGER rtree_{0}_{1}_delete AFTER DELETE ON {0}" +
+			" WHEN old.{1} NOT NULL" +
+			" BEGIN DELETE FROM rtree_{0}_{1} WHERE id = OLD.{2}; END;";
+
+	public static final String[] SPATIAL_TRIGGERS = new String[]{
+		CREATE_TRIGGER_SPATIAL_INSERT,
+		CREATE_TRIGGER_SPATIAL_UPDATE1,
+		CREATE_TRIGGER_SPATIAL_UPDATE2,
+		CREATE_TRIGGER_SPATIAL_UPDATE3,
+		CREATE_TRIGGER_SPATIAL_UPDATE4,
+		CREATE_TRIGGER_SPATIAL_DELETE
+	};
+
 }
