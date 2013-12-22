@@ -115,6 +115,8 @@ public class SimpleFeatureTypeImpl implements SimpleFeatureType {
 	
 	/** A specific value stored in this type's 'user-data' */
 	public enum USER_DATA {
+		/** Is this type for image/ raster features */
+		IMAGE_TILE,
 		/** A description of this type */
 		DESCRIPTION,
 		/** The X (width) real-world size per pixel */
@@ -147,7 +149,9 @@ public class SimpleFeatureTypeImpl implements SimpleFeatureType {
 		STYLE_ATTR_2,
 		/** Any additional server url (specific to this feature type) to append to 
 		 * the root server url */
-		ADD_URL
+		ADD_URL,
+		/** A datasource specifically for this feature type which overrides that on a Dataset */
+		FEATURE_SOURCE
 	};
 	/** No ID constructor
 	 * 
@@ -470,7 +474,7 @@ public class SimpleFeatureTypeImpl implements SimpleFeatureType {
 	
 	@Override
 	public String toString() {
-		return name.getLocalPart()+": "+String.valueOf(userdata.get("Description"));
+		return name.getLocalPart()+": Desc:"+String.valueOf(userdata.get("Description"));
 	}
 	//--------- USER DATA HELPER FUNCTIONS -----------
 	/** Get a string value from the userdata

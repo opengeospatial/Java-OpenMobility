@@ -54,8 +54,6 @@ public class FeatureCollection extends CopyOnWriteArrayList<SimpleFeature> {
 	protected Map<Name, Set<SimpleFeature>> typeNameIndex = new HashMap<Name, Set<SimpleFeature>>();
 	protected Map<String, SimpleFeature> idIndex = new HashMap<String, SimpleFeature>();
 	protected BoundingBox bounds;
-	/** All feature types that are permissible, by their name */
-	protected Map<Name, SimpleFeatureType> availableFeatureTypes = new HashMap<Name, SimpleFeatureType>();
 	private Map<OSMTile, Set<SimpleFeature>> tileIndex = new HashMap<OSMTile, Set<SimpleFeature>>();
 	
 	
@@ -65,10 +63,10 @@ public class FeatureCollection extends CopyOnWriteArrayList<SimpleFeature> {
 	 * @param featureTypes The featureTypes permissible on this collection, or
 	 * Null for a temporary collection.
 	 */
-	public FeatureCollection(Map<Name, SimpleFeatureType> featureTypes) {
-		if (featureTypes!=null) {
-			availableFeatureTypes = featureTypes;
-		}
+	public FeatureCollection() {
+//		if (featureTypes!=null) {
+//			availableFeatureTypes = featureTypes;
+//		}
 	}
 
 	/** Get a specific feature
@@ -86,13 +84,6 @@ public class FeatureCollection extends CopyOnWriteArrayList<SimpleFeature> {
 	 */
 	public boolean hasFeature(String featureID) {
 		return idIndex.containsKey(featureID);
-	}
-	/** Gets the Map of predefined {@link SimpleFeatureType} .
-	 * 
-	 * @return Map<Name, SimpleFeatureType>
-	 */
-	public Map<Name, SimpleFeatureType> getDefinedTypes() {
-		return this.availableFeatureTypes;
 	}
 
     /** Get all the features in this collection that intersect or are contained
@@ -133,51 +124,29 @@ public class FeatureCollection extends CopyOnWriteArrayList<SimpleFeature> {
 		return typeNameIndex.get(name);
 	}
 
-    /** Get a list of FeatureType Names from this feature collection
+    /** Get a list of FeatureType Names from the features currently loaded into this collection.
      * 
-     * @param allNames	True for all available FeatureTypes, False for loaded ones only
      * @param sort	Sort the list by Name. This is a bit slower, so don't use it if not required
      * 
      * @return	FeatureType Names
      */
-    public final ArrayList<Name> getNames(boolean allNames, boolean sort) {
-    	ArrayList<Name> ret = new ArrayList<Name>();
-    	
-    	if (allNames) {
-    		if(sort) {
-    			ret = sortNames( availableFeatureTypes.keySet() );
-    		} else {
-    			for (Name tmp : availableFeatureTypes.keySet()) {
-    				ret.add(tmp);
-    			}
-    		}
-    	} else {
-    		if (sort) {
-    			ret = sortNames( typeNameIndex.keySet() );
-    		} else {
-    			for (Name tmp : typeNameIndex.keySet()) {
-    				ret.add(tmp);
-    			}
-    		}
+    public final List<Name> getNames(boolean sort) {
+    	List<Name> ret = new ArrayList<Name>();
+
+    	for (Name tmp : typeNameIndex.keySet()) ret.add(tmp);
+
+
+    	if (sort) {
+    		java.util.Collections.sort(ret, new Comparator<Name>() {
+    			@Override
+    			public int compare(Name n1, Name n2) {
+    				return n1.getLocalPart().compareTo(n2.getLocalPart());
+    			} 
+    		});
     	}
     	return ret;
     }
-    /** Sort a key set
-     * @param toSort
-     * 
-     * @return ArrayList<Name>
-     */
-    private ArrayList<Name> sortNames(Set<Name> toSort) {
-		ArrayList<Name> ret = new ArrayList<Name>();
-		for (Name tmp : toSort) {
-			ret.add((NameImpl)tmp);
-		}
-		ret.trimToSize();
-		
-		java.util.Collections.sort(ret, new NameComparator() );
-		
-		return ret;
-    }
+
 	/** Copy all new features from the passed collection into this one if their 
 	 * feature ID does not already exist. The feature type(s) from the inbound loader
 	 * are discarded in favour of the available types on this collection<p>
@@ -189,20 +158,20 @@ public class FeatureCollection extends CopyOnWriteArrayList<SimpleFeature> {
 	 * @param from The {@link FeatureLoader} containing the source data
 	 * @return The number of features copied to this collection
 	 */
-	public final int mergeAll(List<SimpleFeature> from) {
-		if (from==null) return -1;
+	public final List<String> mergeAll(Map<Name, SimpleFeatureType> definedTypes, List<SimpleFeature> from) {
+		if (from==null) return null;
 		ArrayList<SimpleFeature> tmpColl = new ArrayList<SimpleFeature>();
+		List<String> featsMerged = new ArrayList<String>();
 
-		int i=0;
 		for (SimpleFeature newFeature : from) {
 			if (this.idIndex.containsKey(newFeature.getID())) continue;
 			
 			Name newFeatName = newFeature.getType().getName();
-			SimpleFeatureType sft = availableFeatureTypes.get( newFeatName );
+			SimpleFeatureType sft = definedTypes.get( newFeatName );
 
 			// Try harder..find by local name?
 			if (sft==null) {
-				for (Entry<Name, SimpleFeatureType> aft : availableFeatureTypes.entrySet()) {
+				for (Entry<Name, SimpleFeatureType> aft : definedTypes.entrySet()) {
 					if (aft.getKey().getLocalPart().equals(newFeatName.getLocalPart())) {
 						sft = aft.getValue();
 						break;
@@ -253,13 +222,13 @@ public class FeatureCollection extends CopyOnWriteArrayList<SimpleFeature> {
 			((SimpleFeatureImpl)newFeature).setType(definedType);
 			tmpColl.add( newFeature );
 			
-			i++;
+			featsMerged.add( newFeature.getID() );
 
 		}
 		
 		this.addAll( tmpColl );
 
-		return i;
+		return featsMerged;
 	}
     /** Does the collection contain this feature?
      * 
@@ -273,9 +242,11 @@ public class FeatureCollection extends CopyOnWriteArrayList<SimpleFeature> {
 	 * 
 	 */
 	private void addToIndex(SimpleFeature feature) {
+		// ID Index
 		if (idIndex==null) idIndex = new HashMap<String, SimpleFeature>();
 		idIndex.put(feature.getID(), feature);
 		
+		// Type name index
 		if (typeNameIndex==null) typeNameIndex = new HashMap<Name, Set<SimpleFeature>>();
 		Name type = feature.getType().getName();
 		Set<SimpleFeature> prev = typeNameIndex.get(type);
@@ -283,6 +254,7 @@ public class FeatureCollection extends CopyOnWriteArrayList<SimpleFeature> {
 		prev.add(feature);
 		typeNameIndex.put(type, prev);
 		
+		// Tile Index
 		// Image features are separated by - and last parts are xref-yref-zoom
 		if (feature.getID().matches(".*-[0-9]+-[0-9]+-[0-9]+")) {
 			OSMTile tile = new OSMTile(feature.getID());
@@ -326,19 +298,36 @@ public class FeatureCollection extends CopyOnWriteArrayList<SimpleFeature> {
 	 * 
 	 * @param feature
 	 */
-	void removeFromIndex(SimpleFeature feature) {
+	protected void removeFromIndex(SimpleFeature feature) {
 		if (feature==null) return;
+		
+		// ID Index
 		idIndex.remove( feature.getID() );
+		
+		// Type name index
 		Name type = feature.getType().getName();
 		Set<SimpleFeature> prev = typeNameIndex.get(type);
-		boolean rev = false;
-		if (prev!=null) rev = prev.remove( feature );
-		if (rev) {
+		if ( prev.remove( feature ) ) {
 			if (prev.size()>0) {
 				typeNameIndex.put(type,prev);
 			} else {
 				typeNameIndex.remove(type);
 			}
+		}
+		
+		// Tile Index
+		if (feature.getID().matches(".*-[0-9]+-[0-9]+-[0-9]+")) {
+			OSMTile tile = new OSMTile(feature.getID());
+			prev = tileIndex.get( tile );
+			if ( prev.remove( feature ) ) {
+				if (prev.size()>0) {
+					tileIndex.put(tile, prev);
+				} else {
+					tileIndex.remove(type);
+				}
+			}
+		} else {
+			// Whatever for features
 		}
 	}
 
@@ -403,12 +392,10 @@ public class FeatureCollection extends CopyOnWriteArrayList<SimpleFeature> {
 		SimpleFeature f = null;
 		if (object instanceof String) {
 			f = this.get(String.valueOf(object));
-		} else {
-			try {
-				f = (SimpleFeature)object;
-			} catch (Exception e) {
-				return false;
-			}
+		} else if (object instanceof SimpleFeature) {
+			f = (SimpleFeature)object;
+		} else if (object instanceof Integer) {
+			f = this.get(Integer.valueOf(String.valueOf(object)));
 		}
 		if (f==null) return false;
 		
@@ -422,6 +409,18 @@ public class FeatureCollection extends CopyOnWriteArrayList<SimpleFeature> {
 		return super.remove(idx);
 	}
 	
+	@Override
+	public boolean removeAll(Collection<?> collection) {
+		for (Object o : collection) {
+			if (o instanceof SimpleFeature) {
+				removeFromIndex( (SimpleFeature)o );
+			} else if (o instanceof String) {
+				removeFromIndex( this.get( String.valueOf( o ) ) );
+			}
+		}
+		return super.removeAll(collection);
+	}
+
 	/** Clear the whole container and resets all the indexes
 	 */
 	@Override
@@ -429,18 +428,7 @@ public class FeatureCollection extends CopyOnWriteArrayList<SimpleFeature> {
 		super.clear();
 		idIndex = new HashMap<String, SimpleFeature>();
 		typeNameIndex = new HashMap<Name, Set<SimpleFeature>>();
-		//tileIndex = new HashMap<String, ArrayList<SimpleFeature>>();
+		tileIndex = new HashMap<OSMTile, Set<SimpleFeature>>();
 	}
 
-	/** A comparator used to sort {@link Name} implementations.
-	 *
-	 */
-	class NameComparator  implements Comparator<Name> {
-
-		@Override
-		public int compare(Name n1, Name n2) {
-			return n1.getLocalPart().compareTo(n2.getLocalPart());
-		}
-
-	}
 }

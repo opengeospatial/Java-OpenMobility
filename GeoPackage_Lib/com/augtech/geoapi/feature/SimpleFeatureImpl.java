@@ -51,6 +51,7 @@ public class SimpleFeatureImpl implements SimpleFeature {
 	protected Map<Object, Object> userdata = new HashMap<Object, Object>();
 	protected SimpleFeatureType featureType;
 	protected boolean allAttrsPresent = false;
+	protected BoundingBox bounds = null;
 
 	/** Create a new SimpleFeature implementation
 	 * 
@@ -87,29 +88,38 @@ public class SimpleFeatureImpl implements SimpleFeature {
 	 * @return An implementation of {@link BoundingBox}
 	 */
 	public final BoundingBox getBounds() {
+		if (bounds!=null) return bounds;
+		
 		Name geomName = featureType.getGeometryDescriptor().getName();
 		Object geom = getAttribute( geomName );
 		
-		if (geom==null) return null;
-
+		if (geom==null) return new BoundingBoxImpl("4326");
+				
 		if (geom instanceof Geometry) {
 			
 			Geometry g = (Geometry) geom;
-			return new BoundingBoxImpl(g.getEnvelopeInternal(), g.getSRID()+"");
-			
-		} else if (geom instanceof Envelope) {
-			
-			Envelope e = (Envelope)geom;
-			String srs = featureType.getGeometryDescriptor().getCoordinateReferenceSystem().getName().getCode();
-			return new BoundingBoxImpl(e, srs);
+			int srsID = g.getSRID();
+			this.bounds = new BoundingBoxImpl(g.getEnvelopeInternal(), ""+srsID);
 			
 		} else if (geom instanceof BoundingBox) {
 			
-			return (BoundingBox)geom;
+			this.bounds = (BoundingBox)geom;
+			
+		} else if (geom instanceof Envelope) {
+
+			try {
+				
+				this.bounds = (BoundingBox)geom;
+
+			} catch (Exception e) {
+				e.printStackTrace();
+				String srsID = featureType.getGeometryDescriptor().getCoordinateReferenceSystem().getName().getCode();
+				this.bounds = new BoundingBoxImpl((Envelope)geom, srsID);
+			}
 			
 		}
 		
-		return null;
+		return this.bounds;
 	}
 	/** Get the feature's ID as a {@link NameImpl}
 	 * 
@@ -217,11 +227,11 @@ public class SimpleFeatureImpl implements SimpleFeature {
 		}
 	}
 	@Override
-	public final Object getDefaultGeometry() {
+	public final Geometry getDefaultGeometry() {
 		if (attrValues==null) return null;
 		Name geomName = featureType.getGeometryDescriptor().getName();
 		int idx = featureType.indexOf( geomName );
-		return attrValues.get( idx );
+		return (Geometry) attrValues.get( idx );
 	}
 
 	@Override
