@@ -11,7 +11,13 @@ import com.vividsolutions.jts.geom.Coordinate;
 public class OSMTile {
 	/** Standard pixel size for a 256*256 raster at zoom level 18 for a Spherical Mercator
 	 * project - i.e. EPSG:3857 Google, OSM, Bing tile */
-	public static final double PIXEL_LENGTH_AT_ZOOM18 = 0.597165;
+	public static final double PIXEL_256_LENGTH_AT_ZOOM18 = 0.597165;
+	
+	/** The world extents for the EPSG:3857 tile matrix set */
+	public static final BoundingBox OSM_TMS_EXTENT = new BoundingBoxImpl(
+			-20037508.34, 20037508.34, -20037508.34, 20037508.34,
+			new CoordinateReferenceSystemImpl("3857"));
+	
 	private static final double OSMOriginShift = 2 * Math.PI * 6378137 / 2.0;
 	public static final double WGS84_EQUATOR = 6378137.0;
 	private static final double WGS84_CONV = 20037508.34;
@@ -228,7 +234,7 @@ public class OSMTile {
 	public static Set<OSMTile> getOSMTilesForArea(BoundingBox re, int zoom) {
 		Set<OSMTile> allTiles = new HashSet<OSMTile>();
 		
-		OSMTile origin = getTile(re.getMinX(), re.getMinY(), zoom);
+		OSMTile origin = getTile(re.getMinY(), re.getMinX(), zoom);
 		OSMTile currPos = null;
 		
 		boolean doneX = false;
@@ -255,7 +261,7 @@ public class OSMTile {
 			doneX = false;
 			
 			// Check Y movement still in range
-			curr = currPos.getLatLongBounds(256);
+			curr = new OSMTile(x, y, zoom).getLatLongBounds(256);
 			if (!re.contains(curr) && !re.intersects(curr)) doneY = true;
 			
 		}
