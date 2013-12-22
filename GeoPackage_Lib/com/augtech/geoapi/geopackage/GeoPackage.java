@@ -1077,8 +1077,7 @@ public class GeoPackage {
 	 */
 	public long insertTile(String tableName, byte[] tile, int tileColumn, int tileRow, int zoom) throws Exception {
 		
-		// Cache table as could be inserting 1000s features
-		TilesTable tilesTable = new TilesTable(this, tableName);
+		TilesTable tilesTable = (TilesTable)getUserTable( tableName, GpkgTable.TABLE_TYPE_TILES );
 
 		// Is this data jpeg or png (only permissible types)
 		String pngHdr = new String( new byte[]{tile[0], tile[1], tile[2], tile[3]} );
@@ -1148,7 +1147,9 @@ public class GeoPackage {
 	 */
 	public long insertFeature(SimpleFeature feature) throws Exception {
 		SimpleFeatureType type = feature.getType();
-		FeaturesTable featTable = new FeaturesTable(this, type.getName().getLocalPart());
+		
+		FeaturesTable featTable = (FeaturesTable)getUserTable( 
+				type.getName().getLocalPart(), GpkgTable.TABLE_TYPE_FEATURES );
 		
 		// Construct values
 		Map<String, Object> values = new HashMap<String, Object>();
