@@ -422,7 +422,7 @@ public class FeaturesTable extends GpkgTable {
 		geometryInfo.definition = sRecord.getFieldString(0, "definition");
 		
 		// Check extensions for spatial index
-		Extension[] ext = getExtensionInfo(geoPackage);
+		List<Extension> ext = getExtensionInfo(geoPackage);
 		if (ext!=null) {
 			for (Extension e : ext) {
 				if (	e.columnName.equals(geometryInfo.columnName) && 
