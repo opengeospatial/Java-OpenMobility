@@ -62,11 +62,6 @@ public class AndroidCursor implements ICursor {
 	}
 
 	@Override
-	public int getCount() {
-		return cur.getCount();
-	}
-
-	@Override
 	public int getColumnCount() {
 		return cur.getColumnCount();
 	}
@@ -105,5 +100,5 @@ public class AndroidCursor implements ICursor {
 	public String[] getColumnNames() {
 		return cur.getColumnNames();
 	}
-	
+
 }
