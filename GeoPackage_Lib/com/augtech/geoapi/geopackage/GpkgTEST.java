@@ -1,5 +1,5 @@
 /*
- * Copyright 2013, Augmented Technologies Ltd.
+ * Copyright 2014, Augmented Technologies Ltd.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -13,21 +13,22 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.augtech.geopackage;
+package com.augtech.geoapi.geopackage;
 
 import java.io.File;
 import java.io.FileInputStream;
+import java.io.InputStream;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 import org.opengis.feature.simple.SimpleFeatureType;
 import org.opengis.feature.type.AttributeType;
 import org.opengis.feature.type.GeometryType;
 import org.opengis.feature.type.Name;
-
-import android.content.Context;
-import android.util.Log;
 
 import com.augtech.geoapi.feature.FeatureCollection;
 import com.augtech.geoapi.feature.NameImpl;
@@ -37,25 +38,24 @@ import com.augtech.geoapi.feature.type.AttributeTypeImpl;
 import com.augtech.geoapi.feature.type.GeometryDescriptorImpl;
 import com.augtech.geoapi.feature.type.GeometryTypeImpl;
 import com.augtech.geoapi.feature.type.SimpleFeatureTypeImpl;
-import com.augtech.geoapi.geopackage.GeoPackage;
-import com.augtech.geoapi.geopackage.GpkgTable;
 import com.augtech.geoapi.geopackage.table.FeaturesTable;
 import com.augtech.geoapi.geopackage.table.TilesTable;
 import com.augtech.geoapi.referncing.CoordinateReferenceSystemImpl;
 import com.vividsolutions.jts.geom.Geometry;
 
-/** An Android specific test layer that utilises some of the Aug-Tech GeoAPI facilities 
+/** A test layer that utilises some of the Aug-Tech GeoAPI facilities 
  * for loading data and then testing the Java GeoPackage implementation.
  * 
- * @author Augmented Technologies Ltd.
+ * @author Augmented Technologies Ltd 2014.
  *
  */
-public class TestCase {
-	static final String LOG_TAG = "GeoPackage Tests";
+public class GpkgTEST {
 	GeoPackage geoPackage = null;
-	File gpkgFile = null;
 	FeatureCollection featureCollection = null;
 	FeatureCollection imageCollection = null;
+	ISQLDatabase gpkgDatabase = null;
+	Logger log = Logger.getAnonymousLogger();
+	static String TEST_GML_FILE = "test_gml";
 	
 	/**
 	 * 
@@ -63,24 +63,22 @@ public class TestCase {
 	 * @param gpkgFile
 	 * @param overwrite
 	 */
-	public TestCase(Context appContext, File gpkgFile, boolean overwrite) {
-		
-		this.gpkgFile = gpkgFile;
+	public GpkgTEST(ISQLDatabase database, boolean overwrite) {
 
-		AndroidSQLDatabase aSQL = new AndroidSQLDatabase(appContext, gpkgFile);
-		//GeoPackage.MODE_STRICT = false;
-		Log.i(LOG_TAG, "Connecting to GeoPackage...");
+		this.gpkgDatabase = database;
+
+		log.log(Level.INFO, "Connecting to GeoPackage...");
 		
-		try {
-			geoPackage = new GeoPackage(aSQL, overwrite);
-		} catch (Exception e1) {
-			e1.printStackTrace();
-		}
+		geoPackage = new GeoPackage(gpkgDatabase, overwrite);
 		
 		// Quick test to get the current contents
 		if (geoPackage!=null) {
-			int numExist = geoPackage.getUserTables(GpkgTable.TABLE_TYPE_FEATURES).size();
-			Log.i(LOG_TAG, ""+numExist+" feature tables in the GeoPackage");
+			
+			int numExist = geoPackage.getDefinedUserTables(GpkgTable.TABLE_TYPE_FEATURES).size();
+			log.log(Level.INFO, ""+numExist+" feature tables in the GeoPackage");
+			
+			numExist = geoPackage.getDefinedUserTables(GpkgTable.TABLE_TYPE_TILES).size();
+			log.log(Level.INFO, ""+numExist+" tile tables in the GeoPackage");
 		}
 		
 	}
@@ -102,13 +100,6 @@ public class TestCase {
 		
 		return added;
 	}
-	/** Did the GeoPackage file load?
-	 * 
-	 * @return
-	 */
-	public boolean isGpkgLoaded() {
-		return this.geoPackage !=null;
-	}
 	/** Get the GeoPackage currently in use.
 	 * 
 	 * @return
@@ -126,7 +117,7 @@ public class TestCase {
 	public boolean loadTilesToCollection(String typeName, File path) {
 		if (!path.exists()) return false;
 		
-		Log.i(LOG_TAG, "Loading Images...");
+		log.log(Level.INFO, "Loading Images...");
 		
 		// Build attribute definitions
 		ArrayList<AttributeType> attrs = new ArrayList<AttributeType>();
@@ -163,48 +154,46 @@ public class TestCase {
 			return false;
 		}
 		
-		if (imageCollection==null) imageCollection = new FeatureCollection(fTypes);
-		int numMerged = imageCollection.mergeAll( loader );
+		if (imageCollection==null) imageCollection = new FeatureCollection();
+
+		List<String> newIDs = imageCollection.mergeAll( fTypes, loader );
 		
-		Log.i(LOG_TAG, "Loaded "+numMerged+" images");
+		log.log(Level.INFO, "Loaded "+newIDs.size()+" images");
 		
-		return numMerged > 0;
+		return newIDs.size() > 0;
 	}
 	
-	/** Load a GML File to the internal feature collection.
+	/** Load the test GML File to the internal feature collection.
 	 * 
-	 * @param fileName
 	 * @param overwrite True to overwrite the existing FeatureCollection, False to append 
 	 * @return True if >0 features are loaded to the featureCollection
 	 * @throws Exception
 	 */
-	public boolean loadGMLToCollection(File gmlFile, boolean overwrite) throws Exception {
-		if (!gmlFile.exists()) return false;
-		Log.i(LOG_TAG, "Loading GML...");
+	public boolean loadGMLToCollection(boolean overwrite) throws Exception {
 		
-		FileInputStream gmlIS = new FileInputStream( gmlFile );
+		InputStream gmlFile = this.getClass().getResourceAsStream(TEST_GML_FILE);
+		if (gmlFile==null) return false;
+		
+		log.log(Level.INFO, "Loading GML...");
+
 		GML2_1 gmlLoader = new GML2_1(null);
 		
-		int numFeat = gmlLoader.loadFeatures(gmlIS);
+		int numFeat = gmlLoader.loadFeatures( gmlFile );
 
 		Map<Name, SimpleFeatureType> fTypes = gmlLoader.getLoadedTypes();
 		if (overwrite) {
-			featureCollection = new FeatureCollection( fTypes );
+			featureCollection = new FeatureCollection();
 		} else {
 			if (featureCollection == null) {
-				featureCollection = new FeatureCollection( fTypes );
-			}
-			// In case the new file has types not previously seen
-			if (featureCollection.size()>0) {
-				featureCollection.getDefinedTypes().putAll(fTypes);
+				featureCollection = new FeatureCollection( );
 			}
 		}
-		int merged = featureCollection.mergeAll(gmlLoader);
-		
+		List<String> newIds = featureCollection.mergeAll(fTypes, gmlLoader);
+		int merged = newIds.size();
 		// The merged figure can be less as duplicate IDs will not be added.
-		if (numFeat!=merged) Log.i(LOG_TAG, ""+(numFeat-merged)+" features not loaded to FC");
+		if (numFeat!=merged)log.log(Level.INFO, ""+(numFeat-merged)+" features not loaded to FC");
 
-		Log.i(LOG_TAG, "Loaded "+merged+" features");
+		log.log(Level.INFO, "Loaded "+merged+" features");
 		return merged > 0;
 	}
 	/** 
@@ -216,7 +205,7 @@ public class TestCase {
 	public int insertTilesFromCollection(boolean allTiles) throws Exception {
 		if (imageCollection==null) return -1;
 		
-		Log.i(LOG_TAG, "Inserting images to GeoPackage...");
+		log.log(Level.INFO, "Inserting images to GeoPackage...");
 		int numIns = 0;
 		
 		if (allTiles) {
@@ -230,7 +219,7 @@ public class TestCase {
 			
 		}
 	
-		Log.i(LOG_TAG, "Inserted "+numIns+" images.");
+		log.log(Level.INFO, "Inserted "+numIns+" images.");
 		
 		return numIns;
 	}
@@ -241,9 +230,11 @@ public class TestCase {
 	 * @throws Exception
 	 */
 	public int insertFeaturesFromCollection(boolean allFeatures) throws Exception {
-		if (featureCollection==null) return -1;
+		
+		if (featureCollection==null) createFeatureTablesFromCollection(true);
+		
 		int numIns = 0;
-		Log.i(LOG_TAG, "Inserting features to GeoPackage...");
+		log.log(Level.INFO, "Inserting features to GeoPackage...");
 		
 		if (allFeatures) {
 			
@@ -256,7 +247,7 @@ public class TestCase {
 			
 		}
 		
-		Log.i(LOG_TAG, "Inserted "+numIns+" features.");
+		log.log(Level.INFO, "Inserted "+numIns+" features.");
 		return numIns;
 	}
 	/**
@@ -266,15 +257,16 @@ public class TestCase {
 	 * @throws Exception
 	 */
 	public boolean createFeatureTablesFromCollection(boolean allTypes) throws Exception {
-		if (featureCollection==null) return false;
+		if (featureCollection==null) loadGMLToCollection(true);
+		
 		boolean processed = false;
-		Log.i(LOG_TAG, "Creating feature tables...");
+		log.log(Level.INFO, "Creating feature tables...");
 		
 		int numCreated = 0;
 
 		if (allTypes) {
 			
-			for (SimpleFeatureType sft : featureCollection.getDefinedTypes().values()) {
+			for (SimpleFeatureType sft : featureCollection.getCurrentTypes()) {
 				
 				FeaturesTable ft = geoPackage.createFeaturesTable(sft, featureCollection.getBounds() );
 				
@@ -285,7 +277,7 @@ public class TestCase {
 		} else {
 			
 			SimpleFeatureType single = null;
-			for (SimpleFeatureType sft : featureCollection.getDefinedTypes().values()) {
+			for (SimpleFeatureType sft : featureCollection.getCurrentTypes() ) {
 				single = sft;
 				break;
 			}
@@ -295,7 +287,7 @@ public class TestCase {
 			numCreated++;
 		}
 		
-		Log.i(LOG_TAG, "Created "+numCreated+" feature tables (types)");
+		log.log(Level.INFO, "Created "+numCreated+" feature tables (types)");
 		
 		return processed;
 	}
