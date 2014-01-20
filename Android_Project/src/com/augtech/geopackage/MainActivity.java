@@ -16,15 +16,23 @@
 package com.augtech.geopackage;
 
 import java.io.File;
+import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 import org.opengis.feature.simple.SimpleFeature;
+import org.opengis.feature.simple.SimpleFeatureType;
+import org.opengis.feature.type.AttributeType;
+import org.opengis.feature.type.GeometryDescriptor;
+import org.opengis.feature.type.Name;
 import org.opengis.geometry.BoundingBox;
 
 import android.app.Activity;
+import android.content.Context;
 import android.os.Bundle;
 import android.os.Environment;
 import android.util.Log;
@@ -32,8 +40,17 @@ import android.view.View;
 import android.widget.Button;
 import android.widget.TextView;
 
+import com.augtech.geoapi.feature.NameImpl;
+import com.augtech.geoapi.feature.type.AttributeTypeImpl;
+import com.augtech.geoapi.feature.type.GeometryDescriptorImpl;
+import com.augtech.geoapi.feature.type.GeometryTypeImpl;
+import com.augtech.geoapi.feature.type.SimpleFeatureTypeImpl;
 import com.augtech.geoapi.geometry.BoundingBoxImpl;
+import com.augtech.geoapi.geopackage.GeoPackage;
+import com.augtech.geoapi.geopackage.GpkgTEST;
+import com.augtech.geoapi.geopackage.geometry.StandardGeometryDecoder;
 import com.augtech.geoapi.referncing.CoordinateReferenceSystemImpl;
+import com.vividsolutions.jts.geom.Geometry;
 /** The main Activity for running test cases
  * 
  * @author Augmented Technologies Ltd.
@@ -42,18 +59,26 @@ import com.augtech.geoapi.referncing.CoordinateReferenceSystemImpl;
 public class MainActivity extends Activity {
 
 	static final String LOG_TAG = "GeoPackage Client";
-	TestCase testing = null;
-	File testDir = getDirectory("Awila/tiles");
+	GpkgTEST testing = null;
+	//File testDir = getDirectory("Awila/tiles");
+	File testDir = getDirectory("GeoPackageTest");
 	TextView statusText = null;
-	private boolean overWrite = false;
+	private boolean overWrite = true;
 	String tilesTable = "historic_images";
+	Context mContext;
 	
 	@Override
 	protected void onCreate(Bundle savedInstanceState) {
 		super.onCreate(savedInstanceState);
 		setContentView(R.layout.activity_main);
 		
-		testing = new TestCase(this, new File(testDir, "9-master.gpkg"), overWrite );
+		mContext = this;
+		
+		GeoPackage.MODE_STRICT = true;
+		
+		AndroidSQLDatabase gpkgDB = new AndroidSQLDatabase(this, new File(testDir, "gml_test.gpkg"));
+		//AndroidSQLDatabase gpkgDB = new AndroidSQLDatabase(this, new File(testDir, "haiti-vectors-split.gpkg"));
+		testing = new GpkgTEST(gpkgDB, overWrite);
 
 		statusText = (TextView) findViewById(R.id.statusText);
 		Button load = (Button)findViewById(R.id.btn_testLoad);
@@ -61,35 +86,98 @@ public class MainActivity extends Activity {
 		load.setOnClickListener(testLoadClick);
 		query.setOnClickListener(testQueryClick);
 		
-		
-		if (!testing.isGpkgLoaded()) {
+		if (testing==null || testing.getGeoPackage()==null) {
 			statusText.setText("Failed to load GeoPackage");
 			load.setEnabled(false);
 			query.setEnabled(false);
 		}
 		
 		if ( !isStorageWriteable() ) {
-			Log.d(LOG_TAG, "Cannot write to disk");
+			statusText.setText("Cannot write to disk");
 			load.setEnabled(false);
 		}
 		
 		
 	}
+
+	private View.OnClickListener testQueryClick = new View.OnClickListener() {
+		@Override
+		public void onClick(View v) {
+			boolean Haiti = true;
+			
+			try {
+				// If it is loaded, test querying for features/ tiles
+				if (testing.getGeoPackage()!=null) {
+					
+					List<SimpleFeature> feats = null;
+					BoundingBox bbox = null;
+
+					// test Port-au-Prince, Haiti
+					if (Haiti) {
+					
+						feats = testing.getGeoPackage().getFeatures("linear_features", 
+									"id=1", new StandardGeometryDecoder() );
+						
+						bbox = new BoundingBoxImpl(
+								-72.335822, -72.633677, 18.4617532, 18.8551624, 
+								new CoordinateReferenceSystemImpl("4326") );
+						
+						feats = testing.getGeoPackage().getFeatures("linear_features", bbox);
+						statusText.setText(""+feats.size()+" feature(s) read via bbox query!");
+					
+						return;
+					}
+					// Get all features from a table
+					feats = testing.getGeoPackage().getFeatures("surface_water_sewer", "", new StandardGeometryDecoder());
+					statusText.setText(""+feats.size()+" feature(s) read!");
+					
+					// Get all features within a bounding box
+					bbox = new BoundingBoxImpl(
+							380587, 395041, 252954, 273645, 
+							new CoordinateReferenceSystemImpl("27700") );
+					feats = testing.getGeoPackage().getFeatures("surface_water_sewer", bbox);
+					statusText.setText(""+feats.size()+" feature(s) read via bbox query!");
+					
+					bbox = new BoundingBoxImpl(
+							380587, 395041, 252954, 273645, 
+							new CoordinateReferenceSystemImpl("27700") );
+					feats = testing.getGeoPackage().getFeatures("foul_sewer", bbox);
+					statusText.setText(""+feats.size()+" feature(s) read via bbox query!");
+					
+					
+//					// Get all tiles from a single table
+//					feats = testing.getGeoPackage().getTiles(tilesTable, null);
+//					statusText.setText(""+feats.size()+" images(s) read!");
+//					
+//					// Get a single tile we know we have
+//					feats = testing.getGeoPackage().getTiles(tilesTable, "zoom_level=18 and tile_column=129506 and tile_row=86286");
+//					statusText.setText(""+feats.size()+" images(s) read!");
+//
+//					// Get a set of tiles within/ across a bounding box
+//					bbox = new BoundingBoxImpl(
+//							-239247.301401622, -238788.67923184743, 6846158.279178806, 6846616.90134858, 
+//							new CoordinateReferenceSystemImpl("3857"));
+//					feats = testing.getGeoPackage().getTiles(tilesTable, bbox, 18);
+//					statusText.setText(""+feats.size()+" images(s) read!");
+					
+				}
+				
+				
+			} catch (Exception e) {
+				e.printStackTrace();
+				statusText.setText("Error: "+e.getMessage());
+			}
+		}
+	};
+	
 	private View.OnClickListener testLoadClick = new View.OnClickListener() {
 		@Override
 		public void onClick(View v) {
 			
 			try {
 				// Load a GML file to use for testing creation and inserts
-				List<File> files = getFileListingNoSort(getDirectory("Awila/tiles/566/15"), true, true);
-				int i=0;
-				for (File f : files) {
-					if (!f.isDirectory()) {
-						testing.loadGMLToCollection(f, false );
-						i++;
-					}
-				}
-				statusText.setText("GML files loaded: "+i);
+				testing.loadGMLToCollection( false );
+				statusText.setText("GML file loaded");
 				
 				// Load feature types from GML into the GeoPackage
 				boolean typesloaded = testing.createFeatureTablesFromCollection( true );
@@ -104,8 +192,8 @@ public class MainActivity extends Activity {
 				testing.createTilesTable( tilesTable, 1024 );
 
 				// Load a full tree of tiles
-				files = getFileListingNoSort(getDirectory("Awila/tiles/567/17"), true, true);
-				i=0;
+				List<File >files = getFileListingNoSort(getDirectory("Awila/tiles/567/17"), true, true);
+				int i=0;
 				for (File file : files) {
 					if (file.isDirectory()) {
 						testing.loadTilesToCollection( tilesTable, file );
@@ -129,57 +217,9 @@ public class MainActivity extends Activity {
 	};
 	
 	
-	private View.OnClickListener testQueryClick = new View.OnClickListener() {
-		@Override
-		public void onClick(View v) {
-
-			try {
-				// If it is loaded, test querying for features/ tiles
-				if (testing.isGpkgLoaded()) {
-
-					List<SimpleFeature> feats = null;
-					BoundingBox bbox = null; 
-
-					// Get all features from a table
-					feats = testing.getGeoPackage().getFeatures("foul_sewer", "");
-					statusText.setText(""+feats.size()+" feature(s) read!");
-					
-					// Get all features within a bounding box
-					bbox = new BoundingBoxImpl(
-							389587, 390041, 262954, 263645, 
-							new CoordinateReferenceSystemImpl("27700") );
-					feats = testing.getGeoPackage().getFeatures("foul_sewer", bbox);
-					statusText.setText(""+feats.size()+" feature(s) read via bbox query!");
-					
-					// Get all tiles from a single table
-					feats = testing.getGeoPackage().getTiles(tilesTable, null);
-					statusText.setText(""+feats.size()+" images(s) read!");
-					
-					// Get a single tile we know we have
-					feats = testing.getGeoPackage().getTiles(tilesTable, "zoom_level=18 and tile_column=129506 and tile_row=86286");
-					statusText.setText(""+feats.size()+" images(s) read!");
-
-					// Get a set of tiles within/ across a bounding box
-					bbox = new BoundingBoxImpl(
-							-239247.301401622, -238788.67923184743, 6846158.279178806, 6846616.90134858, 
-							new CoordinateReferenceSystemImpl("3857"));
-					feats = testing.getGeoPackage().getTiles(tilesTable, bbox, 18);
-					statusText.setText(""+feats.size()+" images(s) read!");
-					
-				}
-				
-				
-			} catch (Exception e) {
-				e.printStackTrace();
-				statusText.setText("Error: "+e.getMessage());
-			}
-		}
-	};
-	
-	
 	@Override
 	public void onBackPressed() {
-		testing.getGeoPackage().close();
+		if(testing !=null && testing.getGeoPackage()!=null) testing.getGeoPackage().close();
 		System.exit(0);
 	}
 
