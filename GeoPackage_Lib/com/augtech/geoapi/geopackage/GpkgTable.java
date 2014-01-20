@@ -67,8 +67,10 @@ public abstract class GpkgTable {
 	protected String description = "";
 	private Date lastChange = null;
 	private BoundingBox bbox = new BoundingBoxImpl("EPSG:4326");
-	/** An array of extensions applicable to this table */
-	protected Extension[] gpkgExtensions = null;
+	/** A List of extensions applicable to this table.
+	 * Swapped to sse arraylist to save getting a count on the cursor which cycles
+	 * whole ResultSet on underlying Cursor implementation */
+	protected List<Extension> gpkgExtensions = null;
 	
 	/** Create a new instance of a GpkgTable (this will not create the table in 
 	 * the GeoPackage, only a class for handling a table).
@@ -217,7 +219,7 @@ public abstract class GpkgTable {
 	 * @return An array of Extension's relating to this table, or <code>Null</code>
 	 * if there isn't any
 	 */
-	public Extension[] getExtensionInfo(GeoPackage geoPackage) {
+	public List<Extension> getExtensionInfo(GeoPackage geoPackage) {
 		
 		if (gpkgExtensions==null && !hasExtensionInfo) {
 			GpkgTable extTable = geoPackage.getSystemTable(GpkgExtensions.TABLE_NAME);
@@ -227,9 +229,10 @@ public abstract class GpkgTable {
 			}
 			
 			ICursor exCursor = extTable.query(geoPackage, null, "table_name='"+tableName+"'");
+
+
 			if (exCursor!=null) {
-				this.gpkgExtensions = new Extension[exCursor.getCount()];
-				int ge = 0;
+				this.gpkgExtensions = new ArrayList<Extension>();
 				while (exCursor.moveToNext()) {
 					Extension ext = new Extension();
 					ext.tableName = tableName;
@@ -238,12 +241,11 @@ public abstract class GpkgTable {
 					ext.definition = exCursor.getString( exCursor.getColumnIndex("definition") );
 					ext.scope = exCursor.getString( exCursor.getColumnIndex("scope") );
 					
-					this.gpkgExtensions[ge] = ext;
-					ge++;
+					this.gpkgExtensions.add( ext );
 				}
 				exCursor.close();
 			}
-			hasExtensionInfo = true;
+			hasExtensionInfo = this.gpkgExtensions.size() > 0;
 		}
 
 		return this.gpkgExtensions;
@@ -292,6 +294,15 @@ public abstract class GpkgTable {
 		int count = c.getInt(0);
 		c.close();
 		return count;
+	}
+	/** Insert a set of record values into this table as a batch
+	 * 
+	 * @param geoPackage
+	 * @param allValues
+	 * @return The number of records successfully inserted
+	 */
+	public long insert(GeoPackage geoPackage, List<Map<String, Object>> allValues) {
+		return geoPackage.getDatabase().doInsert("["+tableName+"]", allValues);
 	}
 	/** Insert a record into the table
 	 * 

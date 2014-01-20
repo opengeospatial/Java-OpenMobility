@@ -16,6 +16,7 @@
 package com.augtech.geoapi.geopackage;
 
 import java.io.File;
+import java.util.List;
 import java.util.Map;
 
 public interface ISQLDatabase {
@@ -80,6 +81,15 @@ public interface ISQLDatabase {
      * @return The number of rows affected if a where clause is passed in, 0 otherwise
      */
 	public int doDelete(String table, String strWhere);
+	/** Insert multiple records into a table as a batch commit<p>
+	 * This method assumes that the value set for every record is the same.
+	 * 
+	 * @param table The table to insert to
+	 * @param values A Collection of a map of the column names and associated values to insert
+	 * 
+	 * @return The total amount of rows inserted
+	 */
+	public long doInsert(String table, List<Map<String, Object>> values);
 	/** Insert a record into a table
 	 * 
 	 * @param table The table to insert to

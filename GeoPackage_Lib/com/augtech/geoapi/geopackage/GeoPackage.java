@@ -37,6 +37,7 @@ import org.opengis.feature.type.AttributeType;
 import org.opengis.feature.type.FeatureType;
 import org.opengis.feature.type.GeometryDescriptor;
 import org.opengis.feature.type.GeometryType;
+import org.opengis.feature.type.Name;
 import org.opengis.geometry.BoundingBox;
 import org.opengis.referencing.crs.CoordinateReferenceSystem;
 
@@ -162,7 +163,10 @@ public class GeoPackage {
 		this.sqlDB = sqlDB;
 		this.dbFile = sqlDB.getDatabaseFile();
 
-		if (overwrite) dbFile.delete();
+		if (overwrite) {
+			if (dbFile.exists() && !dbFile.delete()) 
+				throw new IllegalArgumentException("Unable to overwrite GeoPackage file");
+		}
 
 		// Load table definitions
 		sysTables.put(GpkgSpatialRefSys.TABLE_NAME, new GpkgSpatialRefSys());
@@ -613,21 +617,22 @@ public class GeoPackage {
 		Envelope headerEnv = null;
 		Envelope query = new Envelope(bbox.getMinX(), bbox.getMaxX(), bbox.getMinY(), bbox.getMaxY());
 		
+		
+		/* Deprecated getCount() on Cursor to save the cursor iterating
+		 * whole ResultSet on underlying Cursor implementation */
+		
 		// While we have less records than total for table..
 		while (recCount < totalRecs) {
 			
 			String sql = String.format("SELECT %s,%s FROM [%s] WHERE %s > %s ORDER BY %s LIMIT %s",
 					pk, gi.getColumnName(), tableName, pk, lastPK, pk, MAX_RECORDS_PER_CURSOR);
 			ICursor cPage = getDatabase().doRawQuery( sql );
-			
-			if (cPage.getCount()==0) {
-				cPage.close();
-				break;
-			}
 
 			// Go through these x number of records
+			boolean hasRecords = false;
 			while (cPage.moveToNext()) {
-	
+				
+				hasRecords = true;
 				// Decode the geometry and test
 				headerEnv = geomDecoder.setGeometryData( cPage.getBlob(1) ).getEnvelope();
 				
@@ -649,7 +654,7 @@ public class GeoPackage {
 			}
 		
 			cPage.close();
-
+			if (hasRecords==false) break;
 		}
 
 		log.log(Level.INFO, recCount+" geometries checked in "+(System.currentTimeMillis()-startTime)/1000+" secs");
@@ -1118,21 +1123,66 @@ public class GeoPackage {
 		
 		return ft;
 	}
-	/**
+	/** Add all {@link SimpleFeature}'s on the supplied collection into the GeoPackage as a batch.
+	 * If there are multiple feature types within the collection they are
+	 * automatically split to their corresponding tables.
+	 * The table name to insert into is taken from the local part of
+	 * the {@link FeatureType#getName()}.
 	 * 
 	 * @param features
-	 * @return
+	 * @return The number of records inserted
 	 * @throws Exception
 	 */
 	public int insertFeatures(Collection<SimpleFeature> features) throws Exception {
 		
-		int numInserted = 0;
-		long rec = -1;
-		
+		/* Features within the collection could be different types, so split
+		 * in to seperate lists for batch insertion */
+		Map<Name, List<SimpleFeature>> typeList = new HashMap<Name, List<SimpleFeature>>();
 		for (SimpleFeature sf : features) {
-			rec = insertFeature(sf);
-			if( rec>-1 ) numInserted++;
+			Name tName = sf.getType().getName();
+			List<SimpleFeature> thisType = typeList.get(tName);
 			
+			if (thisType==null) {
+				thisType = new ArrayList<SimpleFeature>();
+				typeList.put(tName, thisType);
+			}
+			thisType.add(sf);
+			
+		}
+		
+		int numInserted = 0;
+		FeaturesTable featTable = null;
+		
+		// For each set of feature's in our individual lists..
+		for (Map.Entry<Name, List<SimpleFeature>> e : typeList.entrySet()) {
+			
+			featTable = (FeaturesTable)getUserTable( 
+					e.getKey().getLocalPart(), GpkgTable.TABLE_TYPE_FEATURES );
+			List<Map<String, Object>> insertVals = new ArrayList<Map<String, Object>>();
+			
+			Collection<GpkgField> tabFields = featTable.getFields();
+			
+			
+			// Get and check dimensional output
+			int mOpt = featTable.getGeometryInfo().getMOption();
+			int zOpt = featTable.getGeometryInfo().getZOption();
+			int dimension = 2;
+			if (	mOpt==Z_M_VALUES_MANDATORY || zOpt==Z_M_VALUES_MANDATORY 
+					|| mOpt==Z_M_VALUES_OPTIONAL || zOpt==Z_M_VALUES_OPTIONAL) {
+				dimension = 3;
+			}
+			if (mOpt==Z_M_VALUES_MANDATORY && zOpt==Z_M_VALUES_MANDATORY)
+				throw new IllegalArgumentException("4 dimensional output is not supported");
+			
+			
+			// Build values for each feature of this type..
+			for (SimpleFeature sf : e.getValue()) {
+				insertVals.add( buildInsertValues(sf, tabFields, dimension) );
+			}
+			
+			// Do the update on the table
+			numInserted += featTable.insert(this, insertVals);
+
 		}
 		
 		return numInserted;
@@ -1144,19 +1194,14 @@ public class GeoPackage {
 	 * @param feature The SimpleFeature to insert.
 	 * @return The RowID of the new record or -1 if not inserted
 	 * @throws Exception
+	 * @see {@link #insertFeatures(Collection)} for batch processing many features
 	 */
 	public long insertFeature(SimpleFeature feature) throws Exception {
 		SimpleFeatureType type = feature.getType();
 		
 		FeaturesTable featTable = (FeaturesTable)getUserTable( 
 				type.getName().getLocalPart(), GpkgTable.TABLE_TYPE_FEATURES );
-		
-		// Construct values
-		Map<String, Object> values = new HashMap<String, Object>();
-		Object value = null;
-		FeatureField field = null;
-		boolean passConstraint = true;
-		
+
 		// Get and check dimensional output
 		int mOpt = featTable.getGeometryInfo().getMOption();
 		int zOpt = featTable.getGeometryInfo().getZOption();
@@ -1168,8 +1213,30 @@ public class GeoPackage {
 		if (mOpt==Z_M_VALUES_MANDATORY && zOpt==Z_M_VALUES_MANDATORY)
 			throw new IllegalArgumentException("4 dimensional output is not supported");
 		
+		Map<String, Object> values = buildInsertValues(feature, featTable.getFields(), dimension);
+		
+		return featTable.insert(this, values);
+	}
+	/** Create a Map of field name to field value for inserting into a table.
+	 * 
+	 * @param feature The {@link SimpleFeature}
+	 * @param tabFields The GeoPackage table fields to use for building the map.
+	 * @param geomDimension 2 or 3 for the Geomaetry ordinates/
+	 * @return A Map 
+	 * @throws IOException
+	 */
+	private Map<String, Object> buildInsertValues(SimpleFeature feature, 
+			Collection<GpkgField> tabFields, int geomDimension) throws IOException {
+		
+		// Construct values
+		SimpleFeatureType type = feature.getType();
+		Map<String, Object> values = new HashMap<String, Object>();
+		Object value = null;
+		FeatureField field = null;
+		boolean passConstraint = true;
+		
 		// For each field defined in the table...
-		for (GpkgField f : featTable.getFields()) {
+		for (GpkgField f : tabFields) {
 			
 			if (f.isPrimaryKey()) continue; // We can't update the PK!
 		
@@ -1195,13 +1262,13 @@ public class GeoPackage {
 			
 			if(passConstraint) {
 				if (value instanceof Geometry) {
-					values.put(field.getFieldName(), encodeGeometry( (Geometry)value, dimension ) );
+					values.put(field.getFieldName(), encodeGeometry( (Geometry)value, geomDimension ) );
 				} else {
 					values.put(field.getFieldName(), value);
 				}
 			} else {
 				if (MODE_STRICT) {
-					throw new Exception("Field "+field.getFieldName()+" did not pass constraint check");
+					throw new IllegalArgumentException("Field "+field.getFieldName()+" did not pass constraint check");
 				}
 				log.log(Level.WARNING, "Field "+field.getFieldName()+" did not pass constraint check; Inserting Null");
 				values.put(field.getFieldName(), null);
@@ -1209,9 +1276,8 @@ public class GeoPackage {
 			
 		}
 		
-		return featTable.insert(this, values);
+		return values;
 	}
-
 	/** Encode a JTS {@link Geometry} to standard GeoPackage geometry blob
 	 * 
 	 * @param geom The Geometry to encode
@@ -1387,7 +1453,7 @@ public class GeoPackage {
 	 * @return A String usable for a table definition data type. Defaults to TEXT for
 	 * any unknown class or Object
 	 */
-	public String encodeType(Class<?> clazz) {
+	public static String encodeType(Class<?> clazz) {
 		String name = clazz.getSimpleName().toLowerCase();
 
 		if (name.equals("integer") || name.equals("int")) {
