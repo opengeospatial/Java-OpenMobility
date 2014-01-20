@@ -66,14 +66,10 @@ public interface ICursor {
 	 * @return the value of that column as an int.
 	 */
 	public int getInt(int columnIndex);
-	/** Get the record count for this cursor
-	 * 
-	 * @return
-	 */
-	public int getCount();
+
 	/** Get the number of columns in this cursor
 	 * 
-	 * @return the numbers of rows in the cursor.
+	 * @return the numbers of columns in the cursor or -1
 	 */
 	public int getColumnCount();
 	/** Returns the value of the requested column as a double. 
