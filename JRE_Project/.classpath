@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<classpath>
+	<classpathentry kind="src" path="src"/>
+	<classpathentry kind="src" path="geoAPI"/>
+	<classpathentry kind="con" path="org.eclipse.jdt.launching.JRE_CONTAINER/org.eclipse.jdt.internal.debug.ui.launcher.StandardVMType/JavaSE-1.6"/>
+	<classpathentry kind="lib" path="C:/Dev_Projects/Libraries/sqlite-jdbc-3.7.2.jar"/>
+	<classpathentry kind="lib" path="C:/Dev_Projects/Libraries/geoapi-pending-3.1-M04.jar" sourcepath="C:/Dev_Projects/Libraries/geoapi-pending-3.1-M04-sources.jar"/>
+	<classpathentry kind="lib" path="C:/Dev_Projects/Libraries/jts-1.8.jar">
+		<attributes>
+			<attribute name="javadoc_location" value="file:/C:/Dev_Projects/doc/jts-1.8/"/>
+		</attributes>
+	</classpathentry>
+	<classpathentry kind="lib" path="C:/Dev_Projects/Libraries/augtechGeoAPI-1.3.0-Main.jar"/>
+	<classpathentry kind="output" path="bin"/>
+</classpath>
