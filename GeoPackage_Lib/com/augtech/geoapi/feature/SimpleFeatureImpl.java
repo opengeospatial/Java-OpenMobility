@@ -207,6 +207,9 @@ public class SimpleFeatureImpl implements SimpleFeature {
 	 * defined for the FeatureType.<p>
 	 * If the value list is smaller than the index of the Geometry attribute
 	 * on the FeatureType, then the value list is expanded accordingly.
+	 * The value list <i>cannot</i> be Null for this method to work,
+	 * therefore always initialise the feature with <i>at least</i> an
+	 * empty list.
 	 * 
 	 * @param geom The Geometry to add.
 	 * @see {@link GeometryFactory} to build the geometry
@@ -219,7 +222,7 @@ public class SimpleFeatureImpl implements SimpleFeature {
 			if (attrValues.size()>idx) {
 				attrValues.set(idx, geom);
 			} else {
-				for (int i=attrValues.size(); i<idx+1; i++) {
+				for (int i=attrValues.size(); i<idx+1; i++) {// Is this supposed to be attrTypes??
 					attrValues.add(null);
 				}
 				attrValues.set(idx, geom);
