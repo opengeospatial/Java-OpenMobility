@@ -16,6 +16,7 @@
 package com.augtech.geopackage;
 
 import java.io.File;
+import java.util.List;
 import java.util.Map;
 
 import android.content.ContentValues;
@@ -117,11 +118,12 @@ public class AndroidSQLDatabase extends SQLiteOpenHelper implements ISQLDatabase
     	}
     	return ret;
 	}
-
-	@Override
-	public long doInsert(String table, Map<String, Object> values) {
-		getDatabase(true);
-		
+	/**
+	 * 
+	 * @param values
+	 * @return
+	 */
+	private ContentValues getContentValues(Map<String, Object> values) {
 		ContentValues cv = new ContentValues();
 		
 		for (Map.Entry<String, Object> v : values.entrySet()) {
@@ -150,9 +152,29 @@ public class AndroidSQLDatabase extends SQLiteOpenHelper implements ISQLDatabase
 			}
 			
 		}
-		return sqlDB.insert(table, null, cv);
+		return cv;
 	}
+	@Override
+	public long doInsert(String table, Map<String, Object> values) {
+		getDatabase(true);
 
+		return sqlDB.insert(table, null, getContentValues(values) );
+	}
+	@Override
+	public long doInsert(String table, List<Map<String, Object>> values) {
+		getDatabase(true);
+		
+		int inserted = 0;
+		
+		sqlDB.beginTransaction();
+		for (Map<String, Object> m : values) {
+			if (sqlDB.insert(table, null, getContentValues(m) )>-1) inserted++;
+		}
+		sqlDB.setTransactionSuccessful();
+		sqlDB.endTransaction();
+
+		return inserted;
+	}
 	@Override
 	public void execSQL(String sql) {
 		getDatabase(true);
@@ -194,6 +216,12 @@ public class AndroidSQLDatabase extends SQLiteOpenHelper implements ISQLDatabase
 	@Override
 	public void onUpgrade(SQLiteDatabase db, int oldVersion, int newVersion) {
 
+	}
+
+	@Override
+	public boolean hasRTreeEnabled() {
+		// Future version of Android may?
+		return false;
 	}
 
 
