@@ -106,6 +106,20 @@ public class FeatureCollection extends CopyOnWriteArrayList<SimpleFeature> {
     	}
     	return tmp;
     }
+    /** Get a list of all SimpleFeatureType's from the SimpleFeature's currently
+     * stored.
+     * 
+     * @return
+     */
+    public List<SimpleFeatureType> getCurrentTypes() {
+    	List<SimpleFeatureType> ret = new ArrayList<SimpleFeatureType>();
+    	for (Set<SimpleFeature> s : typeNameIndex.values()) {
+    		if (s.size()>0) {
+    			ret.add( s.iterator().next().getFeatureType() );
+    		}
+    	}
+    	return ret;
+    }
     /** Get a feature iterator for the whole collection
      * 
      * @return Iterator<SimpleFeature>
