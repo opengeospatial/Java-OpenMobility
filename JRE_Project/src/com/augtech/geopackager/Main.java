@@ -1,16 +1,12 @@
 package com.augtech.geopackager;
 import java.io.File;
-import java.util.List;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
-import org.opengis.feature.simple.SimpleFeature;
-import org.opengis.geometry.BoundingBox;
-
-import com.augtech.geoapi.geometry.BoundingBoxImpl;
+import com.augtech.geoapi.geopackage.GeoPackage;
 import com.augtech.geoapi.geopackage.GpkgTEST;
-import com.augtech.geoapi.geopackage.geometry.StandardGeometryDecoder;
-import com.augtech.geoapi.referncing.CoordinateReferenceSystemImpl;
+import com.augtech.geoapi.utils.ProcessASCII;
+import com.augtech.nz.SHPLoader;
 
 
 public class Main {
@@ -26,80 +22,93 @@ public class Main {
 	 */
 	public static void main(String[] args) {
 		new Main();
-		
+
 		Logger log = Logger.getAnonymousLogger();
-		boolean overwrite = true;
-		boolean testGML = true;
-		
-		if (testGML) {
 
-			// Use internal GML file
-			File dbFile = new File("C:\\Client Projects\\OGC OWS-10\\WinPackage.gpkg");
-			tests = new GpkgTEST(new JDatabase(dbFile), overwrite);
+		int done = 0;
+		boolean doInsertData = false;
+		GeoPackage gpkg = null;
 
-		} else {
+		File testDir = new File("C:\\Client Projects\\OGC OWS-10");
+		boolean overWrite = false;
+		int currentTestCase = GpkgTEST.TEST_HAITI;
 
-			// Use a.n.other DB
-			File dbFile = new File("C:\\Client Projects\\OGC OWS-10\\haiti-vectors-split.gpkg");
-			tests = new GpkgTEST(new JDatabase(dbFile), overwrite);
+		String testDB = null;
+		File loadFile = null;
 
+
+		switch(currentTestCase) {
+		case GpkgTEST.TEST_HAITI:
+			overWrite = false;
+			testDB = "haiti-vectors-split.gpkg";
+			break;
+		case GpkgTEST.TEST_GML:
+		case GpkgTEST.TEST_TILES:
+			testDB = "gml_test.gpkg";
+			break;
+		case GpkgTEST.TEST_NZ:
+			overWrite = false;
+			loadFile = new File(testDir, "nzlri-north-island-edition.shp");
+			testDB = "NZ-Dataset.gpkg";
+			break;
+		case GpkgTEST.TEST_NZ_DEM:
+			overWrite = false;
+			loadFile = new File(testDir, "1-0003-0005.asc");
+			testDB = "asc-2.gpkg";
+			break;
+		case GpkgTEST.TEST_SIGMA:
+			overWrite = false;
+			testDB = "world.gpkg";
+			break;
 		}
 
-		
-		if (tests!=null && tests.getGeoPackage()!=null) {
-			try {
+		File dbFile = new File(testDir, testDB);
+		tests = new GpkgTEST(new JDatabase(dbFile), overWrite);
+		gpkg = tests.getGeoPackage();
 
-				if(overwrite && testGML) {
-					//tests.loadGMLToCollection(true);
-					//tests.createFeatureTablesFromCollection(true);
-					
-					int insert = tests.insertFeaturesFromCollection(true);
-					log.log(Level.INFO, "Insert 1: "+insert+" feature(s) inserted!");
+		if (doInsertData) {
+			
+			switch(currentTestCase) {
+			case GpkgTEST.TEST_NZ_DEM:
+				ProcessASCII pa = new ProcessASCII(loadFile, new JDatabase(dbFile), overWrite);
+				pa.process("TerrainPoint", 0);
+				
+				break;
+			case GpkgTEST.TEST_NZ:
 
+//				gpkg.setSimplifyOnInsertion(50000, 0.0001);
+//
+//				try {
+//					done = new SHPLoader(gpkg, 4326).loadFeatures( loadFile );
+//				} catch (Exception e) {
+//					e.printStackTrace();
+//				}
+//
+//				log.log(Level.INFO, "Done: "+done);
+				break;
+			case GpkgTEST.TEST_GML:
+			case GpkgTEST.TEST_TILES:
+				if (overWrite) {
+					try {
+						int insert = tests.insertFeaturesFromCollection(true);
+						log.log(Level.INFO, "Insert 1: "+insert+" feature(s) inserted!");
+					} catch (Exception e) {
+						e.printStackTrace();
+					}
 				}
-				
-				List<SimpleFeature> feats = null;
-				BoundingBox bbox = null;
-
-				if (testGML) {
-				
-					// Get all features from a table
-					feats = tests.getGeoPackage().getFeatures("surface_water_sewer", "", new StandardGeometryDecoder());
-					log.log(Level.INFO, "Query 1: "+feats.size()+" feature(s) read!");
-					
-					// Get all features within a bounding box
-					bbox = new BoundingBoxImpl(
-							-2.16, -2.14, 52.25, 52.27, 
-							new CoordinateReferenceSystemImpl("4326") );
-					feats = tests.getGeoPackage().getFeatures("surface_water_sewer", bbox);
-					log.log(Level.INFO, "Query 2: "+feats.size()+" feature(s) read via bbox query!");
-					
-					bbox = new BoundingBoxImpl(
-							-2.16, -2.14, 52.25, 52.27,
-							new CoordinateReferenceSystemImpl("4326") );
-					feats = tests.getGeoPackage().getFeatures("foul_sewer", bbox);
-					log.log(Level.INFO, "Query 3: "+feats.size()+" feature(s) read via bbox query!");
-				
-				} else {
-					
-					// test Port-au-Prince, Haiti (from Compusult)
-					feats = tests.getGeoPackage().getFeatures("linear_features", 
-								"id=1", new StandardGeometryDecoder() );
-					
-					bbox = new BoundingBoxImpl(
-							-72.335822, -72.633677, 18.4617532, 18.8551624, 
-							new CoordinateReferenceSystemImpl("4326") );
-					
-					feats = tests.getGeoPackage().getFeatures("linear_features", bbox);
-					log.log(Level.INFO, "Query 1: "+feats.size()+" feature(s) read via bbox query!");
-				
-					return;
-				}
-				
-			} catch (Exception e) {
-				e.printStackTrace();
+				break;
 			}
 		}
+
+
+		try {
+
+			tests.runQeryTestCase(currentTestCase, null);
+
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+
 
 	}
 

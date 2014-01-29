@@ -184,8 +184,8 @@ public class JDatabase implements com.augtech.geoapi.geopackage.ISQLDatabase {
 		int c = ONE_BASED ? 1 : 0;
 		String name = "";
 		for (Object o : objs) {
-			name = o.getClass().getSimpleName().toLowerCase();
-			
+			name = o==null ? "string" : o.getClass().getSimpleName().toLowerCase();
+
 			if (name.equals("integer") || name.equals("int")) {
 				prep.setInt(c, Integer.valueOf(String.valueOf(o)));
 			} else if (name.equals("string")) {
@@ -207,7 +207,8 @@ public class JDatabase implements com.augtech.geoapi.geopackage.ISQLDatabase {
 	@Override
 	public int doUpdate(String table, Map<String, Object> values, String strWhere) {
 		getDatabase(true);
-
+		int result = -1;
+		
 		try {
 			
 			StringBuffer sql = new StringBuffer();
@@ -230,13 +231,14 @@ public class JDatabase implements com.augtech.geoapi.geopackage.ISQLDatabase {
 				e1.printStackTrace();
 			}
 			
-			return preparedStatement.executeUpdate();
+			result = preparedStatement.executeUpdate();
+			preparedStatement.clearParameters();
 			
 		} catch (SQLException e) {
 			e.printStackTrace();
 		}
 		
-		return 0;
+		return result;
 	}
 
 	@Override
@@ -296,6 +298,7 @@ public class JDatabase implements com.augtech.geoapi.geopackage.ISQLDatabase {
 			PreparedStatement preparedStatement = connection.prepareStatement(sql);
 			preparedStatement.clearBatch();
 			
+			// For each set of fields in the list of records..
 			for (Map<String, Object> map : values) {
 				try {
 					
@@ -311,6 +314,7 @@ public class JDatabase implements com.augtech.geoapi.geopackage.ISQLDatabase {
 			}
 			res = preparedStatement.executeBatch().length;
 			connection.setAutoCommit(true);
+			preparedStatement.clearBatch();
 			
 		} catch (SQLException e) {
 			e.printStackTrace();
