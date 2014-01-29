@@ -35,7 +35,7 @@ public class GpkgSpatialRefSys extends GpkgTable {
 	public static final String[] INSERT_DEFAULT_SPATIAL_REF_SYS = new String[] {
 		String.format(STMT_INSERT, "Undefined Geographic", 0, "NONE", 0, "undefined", null),
 		String.format(STMT_INSERT, "Undefined Cartesian", -1, "NONE", -1, "undefined", null),
-		String.format(STMT_INSERT, "WGS 84", 4326, "EPSG", 4326, "GEOGCS[\"WGS 84\", DATUM[\"WGS_1984\", SPHEROID[\"WGS 84\",6378137,298.257223563, AUTHORITY[\"EPSG\",\"7030\"]]"+
+		String.format(STMT_INSERT, "GCS_WGS_1984", 4326, "EPSG", 4326, "GEOGCS[\"WGS 84\", DATUM[\"WGS_1984\", SPHEROID[\"WGS 84\",6378137,298.257223563, AUTHORITY[\"EPSG\",\"7030\"]]"+
 				", AUTHORITY[\"EPSG\",\"6326\"]],PRIMEM[\"Greenwich\",0,AUTHORITY[\"EPSG\",\" 8901\"]],UNIT[\"degree\",0.0174532925199433,AUTHORITY[\"EPSG\",\"9122\"]], AUTHORITY[\"EPSG\",\"4326\"]]", null),
 		String.format(STMT_INSERT, "British National Grid", 27700, "EPSG", 27700, "PROJCS[\"OSGB 1936 / British National Grid\",GEOGCS[\"OSGB 1936\",DATUM[\"OSGB_1936\","+
 				"SPHEROID[\"Airy 1830\",6377563.396,299.3249646,AUTHORITY[\"EPSG\",\"7001\"]],AUTHORITY[\"EPSG\",\"6277\"]],PRIMEM[\"Greenwich\",0,AUTHORITY[\"EPSG\",\"8901\"]],UNIT[\"degree\",0.01745329251994328,AUTHORITY[\"EPSG\",\"9122\"]]"+
@@ -64,7 +64,8 @@ public class GpkgSpatialRefSys extends GpkgTable {
 			);
 		
 	}
-	/** Insert a new SRS definition into the GeoPackage
+	/** Insert a new SRS definition into the GeoPackage if it doesn't already
+	 * exist.
 	 * 
 	 * @param geoPackage
 	 * @param name
@@ -74,7 +75,8 @@ public class GpkgSpatialRefSys extends GpkgTable {
 	 * @param description
 	 */
 	public void insertSpatialRefSys(GeoPackage geoPackage, String name, int srsID, String organization, String definition, String description) {
-
+		if (geoPackage.isSRSLoaded(""+srsID)) return;
+		
 		String sql = String.format(STMT_INSERT, name, srsID, organization, srsID, definition, description);
 		
 		geoPackage.getDatabase().execSQL(sql);
