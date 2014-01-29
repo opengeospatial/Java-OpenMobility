@@ -77,6 +77,7 @@ import com.augtech.geoapi.referncing.CoordinateReferenceSystemImpl;
 import com.vividsolutions.jts.geom.Envelope;
 import com.vividsolutions.jts.geom.Geometry;
 import com.vividsolutions.jts.io.ByteOrderValues;
+import com.vividsolutions.jts.simplify.DouglasPeuckerSimplifier;
 
 public class GeoPackage {
 	protected ISQLDatabase sqlDB = null;
@@ -112,7 +113,9 @@ public class GeoPackage {
 	public static final int MAX_GPKG_VERSION = 0;
 	/** The Sqlite registered application_id for a GeoPackage */
 	public static final int GPKG_APPLICATION_ID = Integer.decode("0x47503130");
-	
+	/** The maximum number of vertices permissible on a single Geometry. 
+	 * -1 = no limit */
+	protected int MAX_VERTEX_LIMIT = -1;
 	/** If True, reading of GeoPackage headers, pragmas and Geometry encodings will
 	 * be validated against the specification and exceptions thrown if not valid.
 	 * If False, checks will be performed, but exceptions won't be thrown unless
@@ -186,6 +189,7 @@ public class GeoPackage {
 		//sysViews.put(GeometryColumns.VIEW_NAME, new GeometryColumns()); // Requires function definition
 
 		// Look-ups for sql to Java
+		sqlTypeMap.put("int", JavaType.INTEGER);
 		sqlTypeMap.put("integer", JavaType.INTEGER);
 		sqlTypeMap.put("tinyint", JavaType.INTEGER);
 		sqlTypeMap.put("text", JavaType.STRING);
@@ -204,7 +208,7 @@ public class GeoPackage {
 		/* If the file alread exists, check it is a valid geopackage */
 		if (dbFile.exists()) {
 
-			if (!isGPKGValid()) 
+			if (!isGPKGValid(false)) 
 				throw new IllegalArgumentException("GeoPackage "+dbFile.getName()+" failed integrity checks - Check the source.");
 			
 		} else {
@@ -227,6 +231,9 @@ public class GeoPackage {
 			
 			// Try setting the application_id pragma through Sqlite implementation
 			if ( !setGpkgAppPragma() ) setGpkgAppHeader();
+			
+			if (!isGPKGValid(true)) 
+				throw new IllegalArgumentException("GeoPackage "+dbFile.getName()+" failed integrity checks - Check the source.");
 			
 		}
 		
@@ -324,9 +331,13 @@ public class GeoPackage {
 	 * This check is performed automatically when connecting to a GeoPackage, but should 
 	 * be performed before passing a GeoPackage to another client application or service. 
 	 * 
+	 * @param doIntegrity True to perform a PRAGMA integrity_check. This can take a long
+	 * time on large files (>250mb), therefore it is only normally run 
+	 * when a GeoPackage is created through this library.
+	 * 
 	 * @return True if the checks pass.
 	 */
-	public boolean isGPKGValid() {
+	public boolean isGPKGValid(boolean doIntegrity) {
 		boolean isGPKG = false;
 		boolean integrity = false;
 		boolean foreignKey = false;
@@ -335,12 +346,18 @@ public class GeoPackage {
 		if ( !isGPKG && MODE_STRICT ) isGPKG = isGpkgAppHeaderSet();
 		
 		sqlDB.getDatabase(false);
-		
-		ICursor c = sqlDB.doRawQuery("PRAGMA integrity_check");
-		if (c.moveToFirst()) {
-			integrity = c.getString(0).equals("ok");
+		ICursor c = null;
+
+		if (doIntegrity) {
+			c = sqlDB.doRawQuery("PRAGMA integrity_check");
+			if (c.moveToFirst()) {
+				integrity = c.getString(0).equals("ok");
+			}
+			c.close();
+		} else {
+			integrity = true;
 		}
-		c.close();
+		
 		c = sqlDB.doRawQuery("PRAGMA foreign_key_check");
 		foreignKey = c.moveToFirst();
 		c.close();
@@ -380,6 +397,12 @@ public class GeoPackage {
 		List<SimpleFeature> allFeats = new ArrayList<SimpleFeature>();
 		
 		GpkgTable tilesTable = getUserTable( tableName, GpkgTable.TABLE_TYPE_TILES );
+		
+		// IF strict, check for primary key, although not essential for this query
+		if (MODE_STRICT) { 
+			if (tilesTable.getPrimaryKey(this).equals("unknown"))
+				throw new Exception("Primary key not defined on table "+tableName );
+		}
 		
 		// Is BBOX valid against the table or tile_matrix_set?
 		if ( !checkBBOXAgainstLast(tilesTable, bbox, false, false)) return allFeats;
@@ -444,6 +467,12 @@ public class GeoPackage {
 		List<SimpleFeature> allFeats = new ArrayList<SimpleFeature>();
 		
 		GpkgTable tilesTable = getUserTable( tableName, GpkgTable.TABLE_TYPE_TILES );
+		
+		// IF strict, check for primary key, although not essential for this query
+		if (MODE_STRICT) { 
+			if (tilesTable.getPrimaryKey(this).equals("unknown"))
+				throw new Exception("Primary key not defined on table "+tableName );
+		}
 		
 		// Get the records matching our query
 		GpkgRecords featRecords = tilesTable.query(this, whereClause);
@@ -522,7 +551,7 @@ public class GeoPackage {
 	 * intersecting with the table extents. A StandardGeometryDecoder is used for reading feature
 	 * data.
 	 * 
-	 * @param tableName The table name in this GeoPackage to query.
+	 * @param tableName The <i>case sensitive</i> table name in this GeoPackage to query.
 	 * @param bbox The {@link BoundingBox} to find features in, or intersecting with.
 	 * @return A list of {@linkplain SimpleFeature}'s
 	 * @throws Exception If the SRS of the supplied {@link BoundingBox} does not match the SRS of
@@ -534,8 +563,8 @@ public class GeoPackage {
 	/** Get a list of {@link SimpleFeature} from the GeoPackage by specifying a where clause
 	 * (for example {@code featureId='pipe.1234'} or {@code id=1234} )
 	 * 
-	 * @param tableName The table that holds the feature (probably the localName of<br>
-	 * {@link SimpleFeatureType#getName()}
+	 * @param tableName The <i>case sensitive</i> table name that holds the feature (probably 
+	 * the localName of {@link SimpleFeatureType#getName()}
 	 * @param whereClause The 'Where' clause, less the where. Passing Null will return 
 	 * all records from the table, which is discouraged.
 	 * @param geomDecoder The type of {@linkplain GeometryDecoder} to use.
@@ -557,7 +586,7 @@ public class GeoPackage {
 	}
 	/** Get a list of all SimpleFeature's within, or intersecting with, the supplied BoundingBox.
 	 * 
-	 * @param tableName The table name in this GeoPackage to query.
+	 * @param tableName The <i>case sensitive</i> table name in this GeoPackage to query.
 	 * @param bbox The {@link BoundingBox} to find features in, or intersecting with.
 	 * @param includeIntersect Should feature's intersecting with the supplied box be returned?
 	 * @param testExtents Should the bbox be tested against the data extents in gpkg_contents before
@@ -584,6 +613,11 @@ public class GeoPackage {
 		StringBuffer sqlStmt = new StringBuffer();
 		String pk = featTable.getPrimaryKey(this);
 		
+		if (MODE_STRICT) {
+			if (pk.equals("rowid"))
+				throw new Exception("Primary key not defined on table "+featTable.getTableName() );
+		}
+		
 		// If this GeoPackage is RTREE enabled, use the spatial index
 		if (sqlDB.hasRTreeEnabled() && gi.hasSpatialIndex()) {
 
@@ -609,8 +643,8 @@ public class GeoPackage {
 		sqlStmt.append("SELECT * FROM [").append(tableName).append("] WHERE id IN(");
 		
 		// Query only for feature geometry and test that before getting all attributes
-		int totalRecs = featTable.getCount(this);
 		long startTime = System.currentTimeMillis();
+		int totalRecs = featTable.getCount(this);
 		
 		int lastPK = 0, recCount = 0, hitCount = 0;
 		boolean hit = false;
@@ -657,7 +691,7 @@ public class GeoPackage {
 			if (hasRecords==false) break;
 		}
 
-		log.log(Level.INFO, recCount+" geometries checked in "+(System.currentTimeMillis()-startTime)/1000+" secs");
+		log.log(Level.INFO, recCount+" geometries checked in "+(System.currentTimeMillis()-startTime)/1000+" seconds");
 		
 		
 		// Didn't find anything
@@ -684,17 +718,8 @@ public class GeoPackage {
 		
 		List<SimpleFeature> allFeats = new ArrayList<SimpleFeature>();
 
-		// Get the record count by extracting any 'where' clause
-		String partSql = "SELECT COUNT(*) FROM ["+featTable.tableName+"] ";
-		int whereIdx = sqlStatement.toLowerCase().indexOf("where");
-		if ( whereIdx > 0) {
-			partSql += sqlStatement.substring( whereIdx );
-		}
-		ICursor rc = getDatabase().doRawQuery(partSql);
-		rc.moveToFirst();
-		int totalRecs = rc.getInt(0);
-		rc.close();
-		
+		int totalRecs = featTable.getCount(this);
+
 		if (totalRecs==0) return allFeats;
 		
 		GeometryInfo geomInfo = featTable.getGeometryInfo();
@@ -762,8 +787,14 @@ public class GeoPackage {
 		long startTime = System.currentTimeMillis();
 		String pk = featTable.getPrimaryKey(this);
 		
+		if (MODE_STRICT) {
+			if (pk.equals("rowid"))
+				throw new Exception("Primary key not defined on table "+featTable.getTableName() );
+		}
+		
 		int lastPK = 0, recCount = 0;
 		sqlStatement = sqlStatement.endsWith(";") ? sqlStatement.substring(0, sqlStatement.length()-1) : sqlStatement;
+		int whereIdx = sqlStatement.toLowerCase().indexOf("where");
 		sqlStatement = whereIdx>0 ? sqlStatement+" AND " : sqlStatement+" WHERE ";
 		ArrayList<Object> attrValues = new ArrayList<Object>();
 		Object value = null;
@@ -1108,6 +1139,37 @@ public class GeoPackage {
 		
 		return tilesTable.insert(this, values);
 	}
+	/** Check if a SRS with the supplied code is loaded in GpkgSpatialRefSys
+	 * 
+	 * @param srsName The string value of the srs_name or srs_id
+	 * @return True if loaded, false if not or there was an error.
+	 */
+	public boolean isSRSLoaded(String srsName) {
+		boolean loaded = false;
+		
+		int srsID = -2;
+		try {
+			srsID = Integer.parseInt( srsName );
+		} catch (NumberFormatException ignore) {
+			// TODO Look-up the EPSG code number somehow?
+		}
+		
+		String strWhere = srsID>-2 ? "srs_id="+srsID : "srs_name='"+srsName+"'";
+
+		try {
+			ICursor cur = getSystemTable(GpkgSpatialRefSys.TABLE_NAME).query(
+					this, new String[]{"srs_name"}, strWhere);
+			
+			loaded = cur.moveToNext();
+			cur.close();
+			
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		
+		return loaded;
+	}
+
 	/** Create a {@linkplain FeaturesTable} from a {@link SimpleFeatureType}
 	 * 
 	 * @param featureType The SimpleFeatureType to use.
@@ -1182,8 +1244,10 @@ public class GeoPackage {
 			
 			// Do the update on the table
 			numInserted += featTable.insert(this, insertVals);
-
+			insertVals = null;
 		}
+		
+		typeList = null;
 		
 		return numInserted;
 	}
@@ -1278,6 +1342,20 @@ public class GeoPackage {
 		
 		return values;
 	}
+	/** Set a limit on the number of vertices permissible on a single geometry
+	 * when trying to insert new features. If the limit is exceeded then the 
+	 * geometries are simplified using the supplied tolerance.
+	 * Default is no limit (-1)
+	 * 
+	 * @param limitTo Max vertices
+	 * @param tolerance The tolerance to apply during simplification. This value
+	 * should be appropriate to the geometry's SRS
+	 */
+	public void setSimplifyOnInsertion(int limitTo, double tolerance) {
+		this.MAX_VERTEX_LIMIT = limitTo;
+		simpleTolerance = tolerance;
+	}
+	private double simpleTolerance = 1;
 	/** Encode a JTS {@link Geometry} to standard GeoPackage geometry blob
 	 * 
 	 * @param geom The Geometry to encode
@@ -1290,6 +1368,17 @@ public class GeoPackage {
 		
 		if (outputDimension < 2 || outputDimension > 3)
 			throw new IllegalArgumentException("Output dimension must be 2 or 3");
+		
+		// Stop outrageous geometries from being encoded and inserted
+		if (MAX_VERTEX_LIMIT>0) {
+			int b4 = geom.getNumPoints();
+			if (b4 > MAX_VERTEX_LIMIT) {
+				geom = DouglasPeuckerSimplifier.simplify(geom, simpleTolerance);
+				geom.geometryChanged();
+				int af = geom.getNumPoints();
+				log.log(Level.WARNING, "Geometry Simplified for insertion: "+b4+" to "+af+" points");
+			}
+		}
 		
 		ByteArrayOutputStream output = new ByteArrayOutputStream();
 

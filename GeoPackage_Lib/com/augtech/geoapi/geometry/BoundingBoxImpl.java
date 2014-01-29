@@ -313,5 +313,6 @@ public class BoundingBoxImpl extends Envelope implements BoundingBox {
 	public String toString() {
 		return super.toString();
 	}
+
 	
 }

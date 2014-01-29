@@ -253,7 +253,7 @@ public abstract class GpkgTable {
 	/** Get the defined primary key field name for this table
 	 * 
 	 * @param geoPackage
-	 * @return The name of the pk field or 'unknown' if not defined
+	 * @return The name of the pk field or 'rowid' if not explicitly defined
 	 * @throws Exception
 	 */
 	public String getPrimaryKey(GeoPackage geoPackage) throws Exception {
@@ -263,7 +263,7 @@ public abstract class GpkgTable {
 			if (gf.isPrimaryKey()) return gf.getFieldName();
 		}
 		
-		return "unknown";
+		return "rowid";
 	}
 	/**Get the type of table; One of 
 	 * {@link #TABLE_TYPE_FEATURES}, {@link #TABLE_TYPE_TILES} or {@link #TABLE_TYPE_SYSTEM}
@@ -274,7 +274,7 @@ public abstract class GpkgTable {
 		return tableType;
 	}
 	/** Get the number of records within this table. Note that the table
-	 * is queried every time as records could be inserted, deleted by other
+	 * is queried every time as records could be inserted or deleted by other
 	 * methods.
 	 * 
 	 * @param geoPackage
@@ -282,8 +282,16 @@ public abstract class GpkgTable {
 	 */
 	public int getCount(GeoPackage geoPackage) {
 		if (isTableInDB(geoPackage)==false) return -1;
+
+		// Count on primary key is quicker than * on large tables
+		String pk = "*";
+		try {
+			pk = getPrimaryKey(geoPackage);
+		} catch (Exception e1) {}
 		
-		ICursor c = geoPackage.getDatabase().doRawQuery("Select count(*) from ["+tableName+"]");
+		String sql = String.format("Select count(%s) from [%s]", pk, tableName);
+
+		ICursor c = geoPackage.getDatabase().doRawQuery( sql );
 		if (c==null || !c.moveToFirst()) {
 			try {
 				c.close();
@@ -440,15 +448,16 @@ public abstract class GpkgTable {
 	 */
 	public boolean isTableInGpkg(GeoPackage geoPackage) {
 		boolean tExists = false;
-		if (this.tableName.startsWith("gpkg_")) return false;// System table
+		if (this.tableType.equals(TABLE_TYPE_SYSTEM)) return false;
 		
 		ICursor c = geoPackage.getDatabase().doQuery(
 				"gpkg_contents", 
 				new String[]{"table_name"},
-				"table_name='"+tableName+"';");
+				"table_name='"+tableName+"'");
 		
-		if( c.moveToFirst() ) tExists = c.getString(0).equals(tableName);
+		tExists =  c.moveToFirst();
 		c.close();
+		
 		return tExists;
 	}
 	/** Check that a table exists in the GeoPackage database. This is different to 

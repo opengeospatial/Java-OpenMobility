@@ -28,6 +28,7 @@ import org.opengis.feature.simple.SimpleFeature;
 import org.opengis.feature.simple.SimpleFeatureType;
 import org.opengis.feature.type.AttributeType;
 import org.opengis.feature.type.GeometryDescriptor;
+import org.opengis.feature.type.GeometryType;
 import org.opengis.feature.type.Name;
 import org.opengis.geometry.BoundingBox;
 
@@ -136,18 +137,25 @@ public class FeaturesTable extends GpkgTable {
 		String raw = null;
 		
 		// Check SRS exists in gpkg_spatial_ref_sys table
-		int srsID = Integer.parseInt( geomDescriptor.getCoordinateReferenceSystem().getName().getCode() );
+		String code = geomDescriptor.getCoordinateReferenceSystem().getName().getCode();
+		int srsID = -1;
+		try {
+			srsID = Integer.valueOf(code);
+		} catch (NumberFormatException ignore) {
+			// Try from the bounding box
+			code = bbox.getCoordinateReferenceSystem().getName().getCode();
+			try {
+				srsID = Integer.valueOf(code);
+			} catch (NumberFormatException ignore2) {}
 
-		GpkgRecords records = geoPackage.getSystemTable(GpkgSpatialRefSys.TABLE_NAME)
-								.query(geoPackage, "srs_id="+srsID);
-
-		if (records.getFieldInt(0, "srs_id")!=srsID) 
-			throw new Exception("SRS "+srsID+" does not exist in the gpkg_spatial_ref_sys table");
-
+		}
+		if (!geoPackage.isSRSLoaded( code ))
+			throw new Exception("SRS "+code+" does not exist in the gpkg_spatial_ref_sys table");
+		
 		/* Checks passed, build queries for insertion...*/
 		
-		/* TODO Replace all field definitions with something more generic, or 
-		 * constants on class... */
+		/* TODO Replace all system table field names with something more generic, or 
+		 * constants on class?... */
 		
 		// Construct 'fields' text
 		String geomName = geomDescriptor.getLocalName();
@@ -170,7 +178,7 @@ public class FeaturesTable extends GpkgTable {
 			Name atName = aType.getName();
 			
 			// Don't add Geometry to table def, but do add it into gpkg_data_columns
-			if (atName.equals(geomDescriptor.getName())) {
+			if (atName.equals(geomDescriptor.getName()) || aType instanceof GeometryType) {
 				dataColumnDefs.add(String.format(
 						"INSERT INTO gpkg_data_columns (table_name, column_name, name, title) "+
 						" VALUES ('%s','%s','%s','Feature Geometry')",
@@ -197,7 +205,7 @@ public class FeaturesTable extends GpkgTable {
 					aType.getName().getLocalPart(),
 					aType.getName().toString(),
 					aType.getUserData().get("full_name"),
-					aType.getDescription().toString(),
+					aType.getDescription()!=null ? aType.getDescription().toString() : null, 
 					mime!=null ? "'"+mime+"'" : null,
 					constraint!=null ? "'"+constraint+"'" : null
 					) );
