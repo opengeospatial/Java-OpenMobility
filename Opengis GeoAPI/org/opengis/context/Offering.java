@@ -32,6 +32,22 @@ import java.util.Map;
 public interface Offering {
 	/** The name of this class in the XML document */
 	public static final String TAG = "offering";
+	
+	/** Get a unique ID for this offering, preferably one the enables
+	 * distinction between service end-points. (i.e. If multiple
+	 * offerings point at the same end-point this ID should be the
+	 * same). If the Offering has in-line content then the code will
+	 * be unique across offerings.
+	 * 
+	 * @return
+	 */
+	public int getID();
+	/** Is this an OGC service (WFS, WMS, WCS etc), or either
+	 * a flat file or in-line content?
+	 * 
+	 * @return True if an OGC service offering, false if not.
+	 */
+	public boolean isService();
 	/** Code identifying the type of service offering.<p>
 	 * 
 	 * Operations of a specific service request should be defined 

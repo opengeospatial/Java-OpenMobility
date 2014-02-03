@@ -23,17 +23,20 @@ package org.opengis.context;
  */
 public interface ContextValue {
 
-	/** Get the String value of the object
+	/** Get the String value of the object.
+	 * This method should never return <code>Null</code>
 	 * 
-	 * @return
+	 * @return The string value of the object or ''
 	 */
 	public String getString();
 	/** Get the encoding - Text, HTML or XHTML
+	 * This method should never return <code>Null</code>
 	 * 
-	 * @return
+	 * @return 
 	 */
 	public String getEncoding();
 	/** Get the java class (i.e. String.class, Integer.class etc)
+	 * This method should never return <code>Null</code>
 	 * 
 	 * @return
 	 */

@@ -29,6 +29,12 @@ import com.vividsolutions.jts.geom.Geometry;
 public interface Context {
 	/** The lcal name of this class in the XML document */
 	public static final String TAG = "feed";
+	
+	/** Get the character encoding for the context document (i.e. UTF-8)
+	 * 
+	 * @return
+	 */
+	public String getCharEncoding();
 	/** Specification Reference identifying that this is an owc Context document 
 	 * 
 	 * @return
