@@ -296,7 +296,15 @@ public class FeaturesTable extends GpkgTable {
 		
 		return success;
 	}
-
+	/** Get a constructed SimpleFeatureType based on all the available
+	 * details for this table.
+	 * 
+	 * @return
+	 */
+	public SimpleFeatureType getSchema() {
+		
+		return null;
+	}
 	/** Issue a raw query on this table using a where clause
 	 * 
 	 * @param strWhere The where clause excluding the 'where'

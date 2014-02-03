@@ -21,6 +21,7 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.logging.Level;
 
+import org.opengis.feature.simple.SimpleFeatureType;
 import org.opengis.geometry.BoundingBox;
 
 import com.augtech.geoapi.geometry.BoundingBoxImpl;
@@ -182,6 +183,15 @@ public class TilesTable extends GpkgTable {
 
 
 		return super.getBounds();
+	}
+	/** Get a constructed SimpleFeatureType based on all the available
+	 * details for this table.
+	 * 
+	 * @return
+	 */
+	public SimpleFeatureType getSchema() {
+		
+		return null;
 	}
 	/**
 	 * @return the lastChange
