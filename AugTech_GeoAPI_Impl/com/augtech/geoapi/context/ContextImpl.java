@@ -42,24 +42,27 @@ public class ContextImpl implements Context {
 	List<ContextURI> keywords;
 	Map<String, Object> feedValues;
 	Map<String, String> extensions = new HashMap<String, String>();
-	
+	String charEncoding = "UTF-8";
 	/**
 	 * 
+	 * @param charEncoding
 	 * @param feedValues
 	 * @param feedResources
 	 * @param keywords
 	 */
-	public ContextImpl(Map<String, Object> feedValues, List<Resource> feedResources, 
-			List<ContextURI> keywords) {
-		this(feedValues, feedResources, keywords, null);
+	public ContextImpl(String charEncoding, Map<String, Object> feedValues, 
+			List<Resource> feedResources, List<ContextURI> keywords) {
+		this(charEncoding, feedValues, feedResources, keywords, null);
 	}
 	/**
 	 * 
+	 * @param charEncoding
 	 * @param feedValues
 	 * @param feedResources
 	 * @param keywords
 	 */
-	public ContextImpl(Map<String, Object> feedValues, List<Resource> feedResources, 
+	public ContextImpl(String charEncoding, Map<String, Object> feedValues, 
+			List<Resource> feedResources, 
 			List<ContextURI> keywords, Map<String, String> extensions) {
 		this.feedValues = feedValues;
 		this.feedResources = feedResources;
@@ -69,6 +72,7 @@ public class ContextImpl implements Context {
 				(CreatorDisplay)feedValues.get(CreatorDisplay.TAG));
 		
 		if(extensions!=null) this.extensions = extensions;
+		if (charEncoding!=null) this.charEncoding = charEncoding;
 	}
 	public void setExtensions(Map<String, String> extensions) {
 		this.extensions = extensions;
@@ -100,7 +104,7 @@ public class ContextImpl implements Context {
 
 	@Override
 	public String getUpdateDate() {
-		return String.valueOf( feedValues.get("updateDate") );
+		return ((ContextValue)feedValues.get("updated")).getString();
 	}
 
 	@Override
@@ -110,7 +114,8 @@ public class ContextImpl implements Context {
 
 	@Override
 	public String getPublisher() {
-		return String.valueOf( feedValues.get("publisher") );
+		ContextValue cv = (ContextValue)feedValues.get("publisher");
+		return cv!=null ? cv.getString() : null;
 	}
 
 	@Override
@@ -227,6 +232,10 @@ public class ContextImpl implements Context {
 		} else if (!feedValues.equals(other.feedValues))
 			return false;
 		return true;
+	}
+	@Override
+	public String getCharEncoding() {
+		return charEncoding;
 	}
 
 	

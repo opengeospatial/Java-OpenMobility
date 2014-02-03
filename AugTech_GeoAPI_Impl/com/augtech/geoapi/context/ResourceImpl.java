@@ -84,17 +84,18 @@ public class ResourceImpl implements Resource {
 
 	@Override
 	public String getUpdateDate() {
-		return String.valueOf( resourceValues.get("updateDate") );
+		return String.valueOf( resourceValues.get("updated") );
 	}
 
 	@Override
 	public Author getAuthor() {
-		return (Author) resourceValues.get("author");
+		return (Author) resourceValues.get(Author.TAG);
 	}
 
 	@Override
 	public String getPublisher() {
-		return String.valueOf( resourceValues.get("updateDate") );
+		ContextValue cv = (ContextValue)resourceValues.get("publisher");
+		return cv!=null ? cv.getString() : null;
 	}
 
 	@Override
@@ -134,7 +135,8 @@ public class ResourceImpl implements Resource {
 
 	@Override
 	public boolean getActive() {
-		return (Boolean) resourceValues.get("active");
+		return resourceValues.get("active")==null ? false : 
+			Boolean.valueOf(String.valueOf(resourceValues.get("active")));
 	}
 
 	@Override
@@ -144,12 +146,14 @@ public class ResourceImpl implements Resource {
 
 	@Override
 	public double getMinScaleDenominator() {
-		return (Double) resourceValues.get("minScaleDenominator");
+		return resourceValues.get("minScaleDenominator")==null ? 0d : 
+			(Double) resourceValues.get("minScaleDenominator");
 	}
 
 	@Override
 	public double getMaxScaleDenominator() {
-		return (Double) resourceValues.get("maxScaleDenominator");
+		return resourceValues.get("maxScaleDenominator")==null ? 0d : 
+			(Double) resourceValues.get("maxScaleDenominator");
 	}
 
 	@Override
@@ -159,7 +163,7 @@ public class ResourceImpl implements Resource {
 
 	@Override
 	public Folder getFolder() {
-		return (Folder) resourceValues.get("folder");
+		return (Folder) resourceValues.get(Folder.TAG);
 	}
 
 	@Override

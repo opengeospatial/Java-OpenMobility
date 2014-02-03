@@ -32,17 +32,13 @@ import javax.xml.parsers.SAXParser;
 import javax.xml.parsers.SAXParserFactory;
 
 import org.opengis.context.Author;
-import org.opengis.context.Content;
 import org.opengis.context.Context;
 import org.opengis.context.ContextDocumentReader;
 import org.opengis.context.ContextFilter;
 import org.opengis.context.ContextURI;
 import org.opengis.context.CreatorApplication;
 import org.opengis.context.CreatorDisplay;
-import org.opengis.context.Offering;
-import org.opengis.context.Operation;
 import org.opengis.context.Resource;
-import org.opengis.context.StyleSet;
 import org.xml.sax.Attributes;
 import org.xml.sax.InputSource;
 import org.xml.sax.SAXException;
@@ -87,6 +83,7 @@ public class ContextFilterImpl extends XMLFilterImpl implements ContextFilter {
 	ParserAdapter contextAdapter = null;
 	ParserAdapter gmAdapter = null;
 	private Map<String, Object> nextWhereGeom = null;
+	private String charEncoding = "UTF-8";
 	
 	private Map<String, Map<String, String>> extensions = new HashMap<String, Map<String, String>>();
 	/** Create a new SAX parser for processing the Context document.<p>
@@ -108,7 +105,7 @@ public class ContextFilterImpl extends XMLFilterImpl implements ContextFilter {
         contextAdapter = new ParserAdapter(contextParser.getParser());
         contextAdapter.setContentHandler( this );
         inputSource = new InputSource( new BufferedReader(new InputStreamReader(contentBuffer)) );
-        
+        charEncoding = inputSource.getEncoding();
         
         // Geometry parser
         SAXParser gmlParser = SAXParserFactory.newInstance().newSAXParser();
@@ -255,7 +252,12 @@ public class ContextFilterImpl extends XMLFilterImpl implements ContextFilter {
 		// Now do specific tags
 		if (localName.equals(Context.TAG)) {
 			insideFeed = false;
-			contextDoc = new ContextImpl(feedValues, resources, keywords, extensions.get(localName));
+			contextDoc = new ContextImpl(
+					charEncoding, 
+					feedValues, 
+					resources, 
+					keywords, 
+					extensions.get(localName));
 			// Document should now end!!
 		} else if (localName.equals("where")) {
 			insideWhere = false;
@@ -402,8 +404,8 @@ public class ContextFilterImpl extends XMLFilterImpl implements ContextFilter {
 		return type;
 	}
 	private boolean isExtension(String namespaceURI) {
-		return 	parent.getExtensionNameSpaces()==null || 
-				parent.getExtensionNameSpaces().contains(namespaceURI)==false;
+		return 	parent.getExtensionNameSpaces()!=null && 
+				parent.getExtensionNameSpaces().contains(namespaceURI);
 	}
 	/**
 	 * 

@@ -42,21 +42,29 @@ public class ContextDocumentReaderImpl implements ContextDocumentReader {
 	ContextFilterImpl docFilter = null;
 	InputStream inStream = null;
 	GMLFilterDocument gmlFilter = null;
-	Set<String> extensions = null;
+	Set<String> extensions = new HashSet<String>();
 	
+	/** Construct a new reader from the supplied InputStream with a set of 
+	 * namespaces that define 'extension' tags.
+	 * 
+	 * @param stream
+	 * @param extNameSpaces
+	 * @throws Exception
+	 */
+	public ContextDocumentReaderImpl(InputStream stream, Set<String> extNameSpaces) throws Exception {
+		inStream = Utils.decompressStream( stream );
+		GMLFilterGeometry geomHandler = new GMLFilterGeometry( new GeometryHandler() );
+		gmlFilter = new GMLFilterDocument(geomHandler);
+		docFilter = new ContextFilterImpl(this);
+		if(extNameSpaces!=null) extensions = extNameSpaces;
+	}
 	/** Construct a new reader from the supplied InputStream
 	 * 
 	 * @param stream
 	 * @throws Exception
 	 */
 	public ContextDocumentReaderImpl(InputStream stream) throws Exception {
-		
-		inStream = Utils.decompressStream( stream );
-		GMLFilterGeometry geomHandler = new GMLFilterGeometry( new GeometryHandler() );
-		gmlFilter = new GMLFilterDocument(geomHandler);
-		docFilter = new ContextFilterImpl(this);
-		extensions = new HashSet<String>();
-		extensions.add("http://www.awila.co.uk/awila");
+		this(stream, null);
 	}
 	@Override
 	public void parse() throws Exception {
@@ -97,7 +105,6 @@ public class ContextDocumentReaderImpl implements ContextDocumentReader {
 	}
 	@Override
 	public Set<String> getExtensionNameSpaces() {
-		// TODO Auto-generated method stub
 		return extensions;
 	}
 

@@ -23,9 +23,9 @@ import org.opengis.context.ContextValue;
  *
  */
 public class ContextValueImpl implements ContextValue {
-	Object value;
-	String encoding;
-	Class<?> clazz;
+	String value = "";
+	String encoding = "text";
+	Class<?> clazz = String.class;
 	
 	/**
 	 * 
@@ -33,15 +33,15 @@ public class ContextValueImpl implements ContextValue {
 	 * @param encoding
 	 * @param clazz
 	 */
-	public ContextValueImpl(Object value, String encoding, Class<?> clazz) {
-		this.value = value;
-		this.encoding = encoding;
-		this.clazz = clazz;
+	public ContextValueImpl(String value, String encoding, Class<?> clazz) {
+		this.value = value==null ? "" : value;
+		this.encoding = encoding==null ? "text" : encoding;
+		this.clazz = clazz==null ? String.class : clazz;
 	}
 
 	@Override
 	public String getString() {
-		return String.valueOf(value);
+		return value;
 	}
 
 	@Override

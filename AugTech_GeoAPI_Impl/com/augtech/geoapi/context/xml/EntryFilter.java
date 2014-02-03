@@ -372,8 +372,8 @@ public class EntryFilter extends XMLFilterImpl {
 		return type;
 	}
 	private boolean isExtension(String namespaceURI) {
-		return 	parent.getExtensionNameSpaces()==null || 
-				parent.getExtensionNameSpaces().contains(namespaceURI)==false;
+		return 	parent.getExtensionNameSpaces()!=null && 
+				parent.getExtensionNameSpaces().contains(namespaceURI);
 	}
 	/**
 	 * 

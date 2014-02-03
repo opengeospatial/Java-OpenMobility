@@ -20,6 +20,7 @@ import java.net.URISyntaxException;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 
 import org.opengis.context.Content;
 import org.opengis.context.Offering;
@@ -75,7 +76,36 @@ public class OfferingImpl implements Offering {
 		
 		if(extensions!=null) this.extensions = extensions;
 	}
-	
+	@Override
+	public int getID() {
+
+		if ( isService() ) {
+			// Shouldn't happen with these services
+			if (operations==null) return -1;
+
+			// Use the hash code of the first GetCapabilities request URL
+			for (Operation o : operations) {
+				if (o.getCode().equals("GetCapabilities")) {
+					return o.getURI().toString().hashCode();
+				}
+			}
+			
+		} else {
+			/* GML, KML, GEOTIFF, GMLJP2 and GMLCOV have 
+			 * Inline content or Local reference */
+			return contents.get(0).hashCode();
+		}
+		
+		return UUID.randomUUID().toString().hashCode();
+	}
+	@Override
+	public boolean isService() {
+		String code = getCode().toString();
+		code = code.substring(code.lastIndexOf("/")+1).toUpperCase();
+		
+		return 	code.equals("WFS") || code.equals("WMS") || code.equals("WMTS") ||
+				code.equals("CSW") || code.equals("WPS");
+	}
 	@Override
 	public URI getCode() {
 		return code;
@@ -151,5 +181,6 @@ public class OfferingImpl implements Offering {
 	public int getContentsCount() {
 		return contents==null ? 0 : contents.size();
 	}
+
 
 }
