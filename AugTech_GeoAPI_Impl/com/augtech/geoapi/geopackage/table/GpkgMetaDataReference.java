@@ -64,7 +64,7 @@ public class GpkgMetaDataReference extends GpkgTable {
 					new GpkgField("table_name", "TEXT"),
 					new GpkgField("column_name", "TEXT"),
 					new GpkgField("row_id_value", "INTEGER"),
-					new GpkgField("timestamp", "DATETIME", "NOT NULL", "(strftime('%Y-%m-%dT%H:%M:%fZ',CURRENT_TIMESTAMP))"),
+					new GpkgField("timestamp", "DATETIME", "NOT NULL", "(strftime('%Y-%m-%dT%H:%M:%fZ','now'))"),
 					new GpkgField("md_file_id", "INTEGER", "NOT NULL"),
 					new GpkgField("md_parent_id", "INTEGER")
 				},

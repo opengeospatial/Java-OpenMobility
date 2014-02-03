@@ -35,7 +35,7 @@ public class GpkgContents extends GpkgTable {
 					new GpkgField("data_type", "TEXT", "NOT NULL"),
 					new GpkgField("identifier", "TEXT", "UNIQUE"),
 					new GpkgField("description", "TEXT", null, "''"),
-					new GpkgField("last_change", "DATETIME", "NOT NULL", "(strftime('%Y-%m-%dT%H:%M:%fZ',CURRENT_TIMESTAMP))"),
+					new GpkgField("last_change", "DATETIME", "NOT NULL", "(strftime('%Y-%m-%dT%H:%M:%fZ','now'))"),
 					new GpkgField("min_x", "DOUBLE"),
 					new GpkgField("min_y", "DOUBLE"),
 					new GpkgField("max_x", "DOUBLE"),
