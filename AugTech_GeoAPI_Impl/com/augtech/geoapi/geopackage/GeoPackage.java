@@ -984,7 +984,7 @@ public class GeoPackage {
 	 * @param tableType Either {@link GpkgTable#TABLE_TYPE_FEATURES} or {@link GpkgTable#TABLE_TYPE_TILES}
 	 * @return A new list of tables or an empty list if none were found or the wrong tableType was specified.
 	 */
-	public List<GpkgTable> getDefinedUserTables(String tableType) {
+	public List<GpkgTable> getUserTables(String tableType) {
 		ArrayList<GpkgTable> ret = new ArrayList<GpkgTable>();
 		
 		if (!tableType.equals(GpkgTable.TABLE_TYPE_FEATURES) && !tableType.equals(GpkgTable.TABLE_TYPE_TILES))
@@ -1137,7 +1137,11 @@ public class GeoPackage {
 		values.put("tile_row", tileRow);
 		values.put("tile_data", tile);
 		
-		return tilesTable.insert(this, values);
+		long recID = tilesTable.insert(this, values);
+		
+		if (recID>0) updateLastChange(tilesTable.getTableName(), tilesTable.getTableType());
+		
+		return recID;
 	}
 	/** Check if a SRS with the supplied code is loaded in GpkgSpatialRefSys
 	 * 
@@ -1249,7 +1253,9 @@ public class GeoPackage {
 		
 		typeList = null;
 		
-		return numInserted;
+		if (numInserted>0) updateLastChange(featTable.getTableName(), featTable.getTableType());
+		
+		return numInserted; 
 	}
 	/** Insert a single {@link SimpleFeature} into the GeoPackage.
 	 * The table name to insert into is taken from the local part of
@@ -1279,7 +1285,11 @@ public class GeoPackage {
 		
 		Map<String, Object> values = buildInsertValues(feature, featTable.getFields(), dimension);
 		
-		return featTable.insert(this, values);
+		long recID = featTable.insert(this, values);
+		
+		if (recID>0) updateLastChange(featTable.getTableName(), featTable.getTableType());
+		
+		return recID;
 	}
 	/** Create a Map of field name to field value for inserting into a table.
 	 * 
@@ -1443,19 +1453,105 @@ public class GeoPackage {
 		
 		return buffer;
 	}
-	/**
+	/** Update last_change field in GpkgContents for the given table name and type
+	 * to 'now'.
 	 * 
-	 * @param metaData
+	 * @param tableName
+	 * @param tableType
 	 */
-	public void addMetaData(GpkgMetaData metaData) {
-		//TODO Implement GpkgMetaData
+	private void updateLastChange(String tableName, String tableType) {
+		Map<String, Object> values = new HashMap<String, Object>();
+		values.put("last_change", DateUtil.serializeDateTime(System.currentTimeMillis(), true) );
+		String where = String.format("table_name='%s' and data_type='%s'", tableName, tableType);
+		getSystemTable(GpkgContents.TABLE_NAME).update(this, values, where);
 	}
-	/**
+	/** Insert an OWS Context document correctly in to the GeoPackage.<p>
+	 * This method only allows for one Context Document within the GeoPackage.
 	 * 
-	 * @param metaDataReference
+	 * @param contextDoc Properly formatted document as a String (JSON or XML)
+	 * @param mimeType The encoding of the Context document (JSON or XML)
+	 * @param overwrite If <code>True</code> any current record is overwritten. If <code>False</code>
+	 * and there is an existing record then nothing is done and the method will 
+	 * return <code>False</code>.
+	 * @return True if inserted/ updated successfully.
 	 */
-	public void addMetaDataReference(GpkgMetaDataReference metaDataReference) {
-		//TODO Implement GpkgMetaDataReference
+	public boolean insertOWSContext(String contextDoc, String mimeType, boolean overwrite) {
+		if (contextDoc==null || contextDoc.equals("") || mimeType==null) return false;
+		if (	!mimeType.equalsIgnoreCase("text/xml") &&
+				!mimeType.equalsIgnoreCase("application/xml") &&
+				!mimeType.equalsIgnoreCase("application/json") ) {
+			throw new IllegalArgumentException("Incorrect mimeType specified");
+		}
+				
+		// Do we have an existing record?
+		GpkgTable md = getSystemTable(GpkgMetaData.TABLE_NAME);
+		ICursor c = md.query(this, new String[]{"id"}, "md_standard_uri='http://www.opengis.net/owc/1.0'");
+		int cID = -1;
+		if (c.moveToNext()) {
+			cID = c.getInt(0);
+			c.close();
+		}
+		
+		Map<String, Object> values = new HashMap<String, Object>();
+		values.put("md_scope", GpkgMetaData.SCOPE_UNDEFINED);
+		values.put("md_standard_uri", "http://www.opengis.net/owc/1.0");
+		values.put("mime_type", mimeType);
+		values.put("metadata", contextDoc);
+		
+		boolean updated = false;
+		long mdRec = -1, mdrRec = -1;
+		if (overwrite && cID > -1) {
+			updated = md.update(this, values, "id="+cID) > 0;
+		} else if (cID > -1) {
+			// Don't overwrite, but has record so return false
+			return false;
+		} else if (cID==-1) {
+			// No record, so insert
+			mdRec = getSystemTable(GpkgMetaData.TABLE_NAME).insert(this, values);
+		}
+		
+		// Didn't insert or update
+		if (mdRec==-1 && updated==false) return false;
+		
+		values.clear();
+		
+		if (updated) {
+			// Update timestamp
+			values.put("timestamp", DateUtil.serializeDateTime(System.currentTimeMillis(), true) );
+			mdrRec = getSystemTable(GpkgMetaDataReference.TABLE_NAME).update(this, values, "md_file_id="+cID);
+		} else {
+			values.put("reference_scope", GpkgMetaDataReference.SCOPE_GEOPACKAGE);
+			values.put("md_file_id", mdRec);
+			mdrRec = getSystemTable(GpkgMetaDataReference.TABLE_NAME).insert(this, values);
+		}
+		
+		// Rollback GpkgMetaData if reference not inserted
+		if (mdrRec < 1) {
+			getSystemTable(GpkgMetaData.TABLE_NAME).delete(this, "id="+mdRec);
+		}
+		
+		return mdrRec > -1;
+	}
+	/** Get the String representation of an OWS Context Document from the GeoPackage.<p>
+	 * Only the first Context Document within the GeoPackage is returned
+	 * ( as defined by md_standard_uri='http://www.opengis.net/owc/1.0' )
+	 * 
+	 * @return String[] The first entry is the Context mime-type, the second is the 
+	 * String representation of the document.
+	 */
+	public String[] getOWSContext() {
+		String[] ret = new String[2];
+		
+		ICursor c = getSystemTable(GpkgMetaData.TABLE_NAME).query(
+						this, 
+						new String[]{"mime_type", "metadata"},
+						"md_standard_uri='http://www.opengis.net/owc/1.0'");
+		if(c.moveToFirst()) {
+			ret = new String[] {c.getString(0), c.getString(1)};
+		}
+		c.close();
+		
+		return ret;
 	}
 	/** Add a new constraint to the GeoPackage that can be referenced, using the same constraint_name,
 	 * from gpkg_data_columns.<p>

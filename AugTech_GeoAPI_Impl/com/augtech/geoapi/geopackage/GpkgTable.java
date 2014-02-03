@@ -316,7 +316,7 @@ public abstract class GpkgTable {
 	 * 
 	 * @param geoPackage
 	 * @param values
-	 * @return
+	 * @return The row ID of the newly inserted row
 	 */
 	public long insert(GeoPackage geoPackage, Map<String, Object> values) {
 		return geoPackage.getDatabase().doInsert("["+tableName+"]", values);
