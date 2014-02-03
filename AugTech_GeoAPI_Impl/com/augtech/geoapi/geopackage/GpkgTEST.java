@@ -87,10 +87,10 @@ public class GpkgTEST {
 		// Quick test to get the current contents
 		if (geoPackage!=null) {
 			
-			int numExist = geoPackage.getDefinedUserTables(GpkgTable.TABLE_TYPE_FEATURES).size();
+			int numExist = geoPackage.getUserTables(GpkgTable.TABLE_TYPE_FEATURES).size();
 			log.log(Level.INFO, ""+numExist+" feature tables in the GeoPackage");
 			
-			numExist = geoPackage.getDefinedUserTables(GpkgTable.TABLE_TYPE_TILES).size();
+			numExist = geoPackage.getUserTables(GpkgTable.TABLE_TYPE_TILES).size();
 			log.log(Level.INFO, ""+numExist+" tile tables in the GeoPackage");
 		}
 		
@@ -150,17 +150,16 @@ public class GpkgTEST {
 				attrs,
 				new GeometryDescriptorImpl(gType, new NameImpl("the_geom"))
 				);
-		Map<Name, SimpleFeatureType> fTypes = new HashMap<Name, SimpleFeatureType>();
-		fTypes.put(fTypeName, sft);
+
 		
 		// Create a loader for the tiles
-		RasterTile loader = new RasterTile( fTypes );
+		RasterTile loader = new RasterTile( null );
 		int numLoaded = 0;
 		try {
 			// Load each file..
 			for (File f : path.listFiles()) {
 				loader.setInitialID( f.toString() );
-				numLoaded = loader.loadFeatures( f );
+				numLoaded = loader.loadFeatures( f, sft );
 			}
 		} catch (Exception e) {
 			e.printStackTrace();
@@ -169,6 +168,9 @@ public class GpkgTEST {
 		
 		if (imageCollection==null) imageCollection = new FeatureCollection();
 
+		Map<Name, SimpleFeatureType> fTypes = new HashMap<Name, SimpleFeatureType>();
+		fTypes.put(fTypeName, sft);
+		
 		List<String> newIDs = imageCollection.mergeAll( fTypes, loader );
 		
 		log.log(Level.INFO, "Loaded "+newIDs.size()+" images");
@@ -195,7 +197,7 @@ public class GpkgTEST {
 
 		GML2_1 gmlLoader = new GML2_1(null);
 		
-		int numFeat = gmlLoader.loadFeatures( gmlFile );
+		int numFeat = gmlLoader.loadFeatures( gmlFile, null );
 		gmlFile.delete();
 		
 		Map<Name, SimpleFeatureType> fTypes = gmlLoader.getLoadedTypes();

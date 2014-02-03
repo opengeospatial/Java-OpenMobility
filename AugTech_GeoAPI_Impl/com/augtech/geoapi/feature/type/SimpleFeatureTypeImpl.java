@@ -151,7 +151,9 @@ public class SimpleFeatureTypeImpl implements SimpleFeatureType {
 		 * the root server url */
 		ADD_URL,
 		/** A datasource specifically for this feature type which overrides that on a Dataset */
-		FEATURE_SOURCE
+		FEATURE_DATASOURCE,
+		/** Should this type be switched on (visible) by default? */
+		DEFAULT_ON
 	};
 	/** No ID constructor
 	 * 

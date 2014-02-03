@@ -42,7 +42,6 @@ import com.augtech.geoapi.geopackage.GeoPackage;
  */
 public abstract class FeatureLoader extends ArrayList<SimpleFeature> {
 	private static final long serialVersionUID = 4264941226040642321L;
-	protected Map<Name, SimpleFeatureType> definedFeatureTypes;
 	protected String nextID = "";
 	protected GeoPackage geoPackage = null;
 	protected int gpkgChunkSize = 50000;
@@ -57,40 +56,33 @@ public abstract class FeatureLoader extends ArrayList<SimpleFeature> {
 	 * proper type, for example where one ultimately wants 10 attributes, but the
 	 * data may only contain 2, or the data is an image.
 	 * 
-	 * @param featureTypes A Map of all the {@link SimpleFeatureType}'s that this
-	 * loader will use when building it's SimpleFeature's.
 	 * @param gpkg The GeoPackage to load feature's into. Note that tables are <i>not</i>
 	 * created automatically during load. If Null
 	 * the data is stored on this loader as per normal. The Default chunk size
 	 * is 25,000
 	 * @see #setLoadToGpkgOnly(int)
 	 */
-	public FeatureLoader(Map<Name, SimpleFeatureType> featureTypes, GeoPackage gpkg) {
-		this.definedFeatureTypes = featureTypes;
+	public FeatureLoader(GeoPackage gpkg) {
 		this.geoPackage = gpkg;
 		setLoadToGpkgOnly(25000);
 	}
-	
-	/** Construct a new FeatureLoader that supports the supplied {@link FeatureType}'s.<p>
-	 * FeatureType's are generally required where the underlying data being loaded
-	 * does not contain enough information to create a
-	 * proper type, for example where one ultimately wants 10 attributes, but the
-	 * data may only contain 2, or the data is an image.
-	 * 
-	 * @param featureTypes A Map of all the {@link SimpleFeatureType}'s that this
-	 * loader will use when building it's SimpleFeature's.
+	/** Is a {@link SimpleFeatureType} required in order to load feature's 
+	 * through {@link #loadFeatures(File, SimpleFeatureType)} ?
+	 *  
+	 * @return True if it is
 	 */
-	public FeatureLoader(Map<Name, SimpleFeatureType> featureTypes) {
-		this.definedFeatureTypes = featureTypes;
-	}
-
-	/** Processes an input file of data into this list backing this loader.<p>
+	public abstract boolean isTypeRequiredForLoad();
+	/** Processes an input file of data into this list backing this loader, or 
+	 * the GeoPackage supplied in the constructor (if supplied).<p>
 	 * 
 	 * @param inFile The File to read features from
+	 * @param useType A {@link SimpleFeatureType} to use when constructor the feature's
+	 * from the file, or <code>Null</code> to use the types defined within the file (i.e. 
+	 * GML based data).
 	 * @return The number of feature's loaded or inserted into the GeoPackage
 	 * @see #setLoadToGpkgOnly(int)
 	 */
-	public abstract int loadFeatures(File inFile) throws Exception;
+	public abstract int loadFeatures(File inFile, SimpleFeatureType useType) throws Exception;
 	
 	@Override
 	public void add(int index, SimpleFeature element) {
@@ -191,19 +183,6 @@ public abstract class FeatureLoader extends ArrayList<SimpleFeature> {
 			fTypes.put(sf.getFeatureType().getName(), sf.getFeatureType() );
 		}
 		return fTypes;
-	}
-	/** Get the first SimpleFeatureType from the Map of defined types provided
-	 * in the constructor.
-	 * 
-	 * @return SimpleFeatureType or Null if none exist
-	 */
-	public final SimpleFeatureType getDefaultType() {
-		if (definedFeatureTypes==null) return null;
-		
-		for (SimpleFeatureType sft : definedFeatureTypes.values()) {
-			return sft;
-		}
-		return null;
 	}
 
 	/** Does this feature loader require an ID to be set manually
