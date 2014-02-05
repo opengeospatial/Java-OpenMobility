@@ -21,6 +21,7 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.net.URI;
 
 import org.opengis.context.Content;
 import org.opengis.context.Offering;
@@ -34,6 +35,42 @@ import org.opengis.context.Operation;
 public class Utils {
 	static final int BUFFER = 1024;
 	
+	/** Get a comma separated String of feature type names the offering is restricted
+	 * to.
+	 * 
+	 * @param offering
+	 * @return
+	 */
+	public static String getTypesFromOffering(Offering offering) {
+		String oCode = "";
+		
+		for (Operation o : offering.getOperations()) {
+			oCode = o.getCode();
+			if (oCode.equals("GetFeature") ) {
+				// WFS
+				return getLayerFromURL(o.getURI(), "typename");
+			} else if (oCode.equals("GetMap") ) {
+				// WMS
+				return getLayerFromURL(o.getURI(), "layers");
+
+			} else if (oCode.equals("GetTables")) {
+				// GeoPackage
+				return o.getURI().toString().trim();
+				
+			} else if (oCode.equals("GetTile")) {
+				// WMTS
+				return getLayerFromURL(o.getURI(), "layer");
+			}
+		}
+		
+		return "*";
+	}
+	private static String getLayerFromURL(URI uri, String paramName) {
+		for (String s : uri.getQuery().toLowerCase().split("&")) {
+			if (s.startsWith(paramName)) return s.split("=")[1];
+		}
+		return "*";
+	}
 	/** Copy all in-line contents or results from the supplied {@link Offering} to
 	 * a single file.
 	 * 
@@ -46,8 +83,6 @@ public class Utils {
 		
 		if (offering.getContentsCount()>0) {
 
-			/* TODO: Can the Parsers handle potentially multiple collections
-			 * within a single file ? */
 			for (Content c : offering.getContents()) {
 
 				if (c.getURI()!=null) {
