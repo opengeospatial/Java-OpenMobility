@@ -166,11 +166,23 @@ public class EntryFilter extends XMLFilterImpl {
 
 		} else if (localName.equals(Content.TAG)) {
 			insideContent = false;
-			String sCon = parent.getContentBuffer(qName);
-			// Strip <content> tags
-			sCon = sCon.substring(sCon.indexOf(">")+1);
-			sCon = sCon.substring(0, sCon.lastIndexOf("</"));
-			Content content = new ContentImpl(sCon, contentType, extensions.get(Content.TAG));
+			Content content = null; 
+			// Strip <content> tags if we have data between tags
+			if (!eleValue.equals("") || currentAttrs.get("href")==null) {
+				String sCon = parent.getContentBuffer(qName);
+				sCon = sCon.substring(sCon.indexOf(">")+1);
+				int idx = sCon.lastIndexOf("</") > -1 ? sCon.lastIndexOf("</") : sCon.length();
+				sCon = sCon.substring(0, idx);
+				content = new ContentImpl(sCon, contentType, extensions.get(Content.TAG));
+			} else {
+				//Otherwise has to be by reference using href
+				String uri = currentAttrs.get("href");
+				try {
+					content = new ContentImpl(new URI(uri), contentType);
+				} catch (URISyntaxException e) {}
+				parent.getContentBuffer("????");// We need to clear beyond the previously reset 'content' tag 
+			}
+
 			resetExtensions(localName);
 			
 			if ( insideOffering ) {

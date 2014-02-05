@@ -66,10 +66,10 @@ public class ContentBuffer extends FilterInputStream {
 	 * @return
 	 */
 	public String getBuffer(String qName) {
-		/* If buffer reset correctly then the first tag
-		 * will be the same as the one passed, therefore start search
-		 * after this tag */
-		int l = buffer.indexOf(qName, 2)+qName.length()+1;
+
+		/* Ensure we look for a closing tag */
+		qName = "</"+qName;
+		int l = buffer.indexOf(qName)+qName.length()+1;
 		if (l!=-1 && l<buffer.length()) {
 			String s = buffer.substring(0, l);
 			buffer.delete(0, l);
@@ -85,7 +85,7 @@ public class ContentBuffer extends FilterInputStream {
 	 * @param qName The qualified tag name to clear <i>up to</i>
 	 */
 	public void resetContentBuffer(String qName) {
-		int l = buffer.indexOf(qName)-1;
+		int l = buffer.indexOf("<"+qName)-1;
 		if (l>0 && l<buffer.length())
 			buffer.delete(0, l );
 	}
