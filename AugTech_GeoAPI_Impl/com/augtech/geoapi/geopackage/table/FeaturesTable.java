@@ -32,6 +32,11 @@ import org.opengis.feature.type.GeometryType;
 import org.opengis.feature.type.Name;
 import org.opengis.geometry.BoundingBox;
 
+import com.augtech.geoapi.feature.NameImpl;
+import com.augtech.geoapi.feature.type.AttributeTypeImpl;
+import com.augtech.geoapi.feature.type.GeometryDescriptorImpl;
+import com.augtech.geoapi.feature.type.GeometryTypeImpl;
+import com.augtech.geoapi.feature.type.SimpleFeatureTypeImpl;
 import com.augtech.geoapi.geopackage.DateUtil;
 import com.augtech.geoapi.geopackage.GeoPackage;
 import com.augtech.geoapi.geopackage.GpkgField;
@@ -41,6 +46,8 @@ import com.augtech.geoapi.geopackage.ICursor;
 import com.augtech.geoapi.geopackage.ISQLDatabase;
 import com.augtech.geoapi.geopackage.table.GpkgDataColumnConstraint.DataColumnConstraint;
 import com.augtech.geoapi.geopackage.table.GpkgExtensions.Extension;
+import com.augtech.geoapi.referncing.CoordinateReferenceSystemImpl;
+import com.vividsolutions.jts.geom.Geometry;
 
 /** An extension to the standard {@link GpkgTable} that provides specific functionality
  * relating to a vector feature table within the GeoPackage as well as an enclosed
@@ -300,10 +307,61 @@ public class FeaturesTable extends GpkgTable {
 	 * details for this table.
 	 * 
 	 * @return
+	 * @throws Exception 
 	 */
-	public SimpleFeatureType getSchema() {
+	public SimpleFeatureType getSchema() throws Exception {
+
+		/* Build the geometry descriptor for this SimpleFeatureType. Internally we're going to use
+		 * Proj.4 for any projection/ transformation, therefore not (currently) concerned with the
+		 * definition supplied in the GeoPackage */
+		GeometryInfo geomInfo = getGeometryInfo();
+		GeometryType gType = new GeometryTypeImpl(
+				new NameImpl(geomInfo.getGeometryTypeName()),
+				Geometry.class,
+				new CoordinateReferenceSystemImpl(""+geomInfo.getSrsID()) );
+		GeometryDescriptor gDescr = new GeometryDescriptorImpl( gType, new NameImpl( geomInfo.getColumnName() ) );
 		
-		return null;
+		
+		// Get the field information to build the Attribute Types with
+		ArrayList<AttributeType> attrTypes = new ArrayList<AttributeType>();
+		FeatureField ff = null;
+		Class<?> binding = null;
+		AttributeTypeImpl attType = null;
+		String desc = "";
+		String featureFieldName = null;
+		
+		for (GpkgField gf : getFields() ) {
+			
+			ff = (FeatureField)gf;
+
+			/* If this is the feature id (and text) we'll add as a FeatureID, 
+			 * not as an attribute later */
+			if (ff.isFeatureID()) {
+				
+				featureFieldName = ff.getFieldName();
+				continue;
+				
+			} else {
+				
+				binding = ff.getFieldName().equals(geomInfo.getColumnName()) ? Geometry.class : geoPackage.decodeType( ff.getFieldType() );
+				desc = ff.getTitle()==null || ff.getTitle().equals("") ? ff.getDescription() : ff.getTitle();
+				
+				attType = new AttributeTypeImpl( new NameImpl(ff.getFieldName()), binding );
+				attType.setDescription(	desc );
+				attrTypes.add(attType);
+				
+			}
+			
+		}
+		attrTypes.trimToSize();
+		
+		SimpleFeatureTypeImpl featureType = new SimpleFeatureTypeImpl( 
+				new NameImpl( getTableName() ), 
+				attrTypes,
+				gDescr);
+		featureType.setDescription(getDescription());
+		
+		return featureType;
 	}
 	/** Issue a raw query on this table using a where clause
 	 * 

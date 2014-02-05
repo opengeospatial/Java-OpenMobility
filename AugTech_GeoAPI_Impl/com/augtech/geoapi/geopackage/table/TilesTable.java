@@ -15,6 +15,7 @@
  */
 package com.augtech.geoapi.geopackage.table;
 
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Date;
 import java.util.HashMap;
@@ -22,8 +23,16 @@ import java.util.Map;
 import java.util.logging.Level;
 
 import org.opengis.feature.simple.SimpleFeatureType;
+import org.opengis.feature.type.AttributeType;
+import org.opengis.feature.type.GeometryType;
 import org.opengis.geometry.BoundingBox;
+import org.opengis.referencing.crs.CoordinateReferenceSystem;
 
+import com.augtech.geoapi.feature.NameImpl;
+import com.augtech.geoapi.feature.type.AttributeTypeImpl;
+import com.augtech.geoapi.feature.type.GeometryDescriptorImpl;
+import com.augtech.geoapi.feature.type.GeometryTypeImpl;
+import com.augtech.geoapi.feature.type.SimpleFeatureTypeImpl;
 import com.augtech.geoapi.geometry.BoundingBoxImpl;
 import com.augtech.geoapi.geopackage.DateUtil;
 import com.augtech.geoapi.geopackage.GeoPackage;
@@ -31,6 +40,7 @@ import com.augtech.geoapi.geopackage.GpkgField;
 import com.augtech.geoapi.geopackage.GpkgRecords;
 import com.augtech.geoapi.geopackage.GpkgTable;
 import com.augtech.geoapi.referncing.CoordinateReferenceSystemImpl;
+import com.vividsolutions.jts.geom.Geometry;
 
 
 public class TilesTable extends GpkgTable {
@@ -191,7 +201,30 @@ public class TilesTable extends GpkgTable {
 	 */
 	public SimpleFeatureType getSchema() {
 		
-		return null;
+		// Build the geometry descriptor for this 'image' SimpleFeatureType.
+		CoordinateReferenceSystem thisCRS = getBounds().getCoordinateReferenceSystem();
+		GeometryType gType = new GeometryTypeImpl(
+				new NameImpl("Envelope"),
+				Geometry.class,
+				new CoordinateReferenceSystemImpl( thisCRS.getName().getCode() ) );
+
+		// We only have two attributes - The raster data and a bounding box for the tile
+		ArrayList<AttributeType> attrs = new ArrayList<AttributeType>();
+		attrs.add(new AttributeTypeImpl(new NameImpl("the_image"), Byte[].class ) );
+		attrs.add(new AttributeTypeImpl(new NameImpl("the_geom"), Geometry.class) );
+		attrs.add(new AttributeTypeImpl(new NameImpl("tile_column"), Integer.class) );
+		attrs.add(new AttributeTypeImpl(new NameImpl("tile_row"), Integer.class) );
+		attrs.add(new AttributeTypeImpl(new NameImpl("zoom_level"), Integer.class) );
+		attrs.trimToSize();
+		
+		// Construct the feature type
+		SimpleFeatureType featureType = new SimpleFeatureTypeImpl(
+				new NameImpl( tableName ),
+				attrs,
+				new GeometryDescriptorImpl(gType, new NameImpl("the_geom"))
+				);
+		
+		return featureType;
 	}
 	/**
 	 * @return the lastChange

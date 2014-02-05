@@ -36,17 +36,11 @@ import org.opengis.feature.simple.SimpleFeatureType;
 import org.opengis.feature.type.AttributeType;
 import org.opengis.feature.type.FeatureType;
 import org.opengis.feature.type.GeometryDescriptor;
-import org.opengis.feature.type.GeometryType;
 import org.opengis.feature.type.Name;
 import org.opengis.geometry.BoundingBox;
 import org.opengis.referencing.crs.CoordinateReferenceSystem;
 
-import com.augtech.geoapi.feature.NameImpl;
 import com.augtech.geoapi.feature.SimpleFeatureImpl;
-import com.augtech.geoapi.feature.type.AttributeTypeImpl;
-import com.augtech.geoapi.feature.type.GeometryDescriptorImpl;
-import com.augtech.geoapi.feature.type.GeometryTypeImpl;
-import com.augtech.geoapi.feature.type.SimpleFeatureTypeImpl;
 import com.augtech.geoapi.geometry.BoundingBoxImpl;
 import com.augtech.geoapi.geopackage.geometry.GeometryDecoder;
 import com.augtech.geoapi.geopackage.geometry.OGCWKBWriter;
@@ -466,7 +460,7 @@ public class GeoPackage {
 		
 		List<SimpleFeature> allFeats = new ArrayList<SimpleFeature>();
 		
-		GpkgTable tilesTable = getUserTable( tableName, GpkgTable.TABLE_TYPE_TILES );
+		TilesTable tilesTable = (TilesTable)getUserTable( tableName, GpkgTable.TABLE_TYPE_TILES );
 		
 		// IF strict, check for primary key, although not essential for this query
 		if (MODE_STRICT) { 
@@ -478,26 +472,8 @@ public class GeoPackage {
 		GpkgRecords featRecords = tilesTable.query(this, whereClause);
 		if (featRecords.size()==0) return allFeats;
 		
-		
-		// Build the geometry descriptor for this 'image' SimpleFeatureType.
-		CoordinateReferenceSystem thisCRS = tilesTable.getBounds().getCoordinateReferenceSystem();
-		GeometryType gType = new GeometryTypeImpl(
-				new NameImpl("Envelope"),
-				Geometry.class,
-				new CoordinateReferenceSystemImpl( thisCRS.getName().getCode() ) );
-
-		// We only have two attributes - The raster data and a bounding box for the tile
-		ArrayList<AttributeType> attrs = new ArrayList<AttributeType>();
-		attrs.add(new AttributeTypeImpl(new NameImpl("the_image"), Byte[].class ) );
-		attrs.add(new AttributeTypeImpl(new NameImpl("the_geom"), Geometry.class) );
-		attrs.trimToSize();
-		
 		// Construct the feature type
-		SimpleFeatureType featureType = new SimpleFeatureTypeImpl(
-				new NameImpl( tableName ),
-				attrs,
-				new GeometryDescriptorImpl(gType, new NameImpl("the_geom"))
-				);
+		SimpleFeatureType featureType = tilesTable.getSchema();
 		
 		List<Object> attrValues = null;
 		TileMatrixInfo tmi = ((TilesTable)tilesTable).getTileMatrixInfo();
@@ -516,6 +492,11 @@ public class GeoPackage {
 					featRecords.getFieldInt(rIdx, "zoom_level")
 					);
 			attrValues.add( bbox );
+			
+			// Tile details
+			attrValues.add( featRecords.getFieldInt(rIdx, "tile_column") );
+			attrValues.add( featRecords.getFieldInt(rIdx, "tile_row") );
+			attrValues.add( featRecords.getFieldInt(rIdx, "zoom_level") );
 			
 			// The ID for this tile
 			String fid = String.format("%s-%s-%s-%s-%s",
@@ -722,66 +703,19 @@ public class GeoPackage {
 
 		if (totalRecs==0) return allFeats;
 		
+		SimpleFeatureType featureType = featTable.getSchema();
+		List<AttributeType> attrTypes = featureType.getTypes();
 		GeometryInfo geomInfo = featTable.getGeometryInfo();
 		
-		// Currently we only support EPSG definitions, but may have to change...
-		if (!geomInfo.getOrganization().toLowerCase().equals("epsg"))
-			throw new Exception("Only EPSG SRID's are currently supported.");
-
-		/* Build the geometry descriptor for this SimpleFeatureType. Internally we're going to use
-		 * Proj.4 for any projection/ transformation, therefore not (currently) concerned with the
-		 * definition supplied in the GeoPackage */
-		GeometryType gType = new GeometryTypeImpl(
-				new NameImpl(geomInfo.getGeometryTypeName()),
-				Geometry.class,
-				new CoordinateReferenceSystemImpl(""+geomInfo.getSrsID()) );
-		GeometryDescriptor gDescr = new GeometryDescriptorImpl( gType, new NameImpl( geomInfo.getColumnName() ) );
-		
-		// Get the table field information to build the Attribute Types with
-		ArrayList<AttributeType> attrTypes = new ArrayList<AttributeType>();
-		FeatureField ff = null;
-		Class<?> binding = null;
-		AttributeTypeImpl attType = null;
-		String desc = "";
-		String featureFieldName = null;
-		
+		// Find the feature id field
+		String featureFieldName = "";
 		for (GpkgField gf : featTable.getFields() ) {
-			
-			ff = (FeatureField)gf;
-
-			/* If this is the feature id (and text) we'll add as a FeatureID, 
-			 * not as an attribute later */
-			if (ff.isFeatureID()) {
-				
-				featureFieldName = ff.getFieldName();
-				continue;
-				
-			} else {
-				
-				binding = ff.getFieldName().equals(geomInfo.getColumnName()) ? Geometry.class : decodeType( ff.getFieldType() );
-				desc = ff.getTitle()==null || ff.getTitle().equals("") ? ff.getDescription() : ff.getTitle();
-				
-				attType = new AttributeTypeImpl( new NameImpl(ff.getFieldName()), binding );
-				attType.setDescription(	desc );
-				attrTypes.add(attType);
-				
+			if ( ((FeatureField)gf).isFeatureID() ) {
+				featureFieldName = gf.getFieldName();
+				break;
 			}
-			
 		}
-		attrTypes.trimToSize();
-		
-		/* Theoretically a features table can have multiple FeatureTypes 
-		 * within it, although all the geometry types (and SRID) as well as the attribute
-		 * set must be the same - we will therefore assume this can be described as a single
-		 * FeatureType. */
-		/* TODO: This is a bad assumption as all features can be 'GeometryCollection', which
-		 * could be any base type */
-		SimpleFeatureTypeImpl featureType = new SimpleFeatureTypeImpl( 
-				new NameImpl( featTable.getTableName() ), 
-				attrTypes,
-				gDescr);
-		featureType.setDescription(featTable.getDescription());
-
+				
 		/* Query the table in 'pages' of LIMIT number */
 
 		long startTime = System.currentTimeMillis();
