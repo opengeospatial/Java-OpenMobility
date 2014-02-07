@@ -27,6 +27,9 @@ import org.opengis.context.Content;
 import org.opengis.context.Offering;
 import org.opengis.context.Operation;
 
+import com.augtech.awilaSDK.utils.FileIO;
+import com.augtech.geoapi.utils.WebRequest;
+
 /** A few utilities to aid processing Context Document information
  * 
  * @author Augmented Technologies Ltd.
@@ -116,7 +119,65 @@ public class Utils {
 			}
 		}
 	}
-	
+	/** Download online or process in-line context content from the supplied Offering source
+	 * into a single file stored locally. If the contents is in a zip file then all files in
+	 * the zip are extracted and the first file with a matching extension is returned.<p>
+	 * 
+	 * If the target file exists nothing is done and that file name is returned, therefore the 
+	 * supplied directory should be unique to the offering and external referesh/ removal
+	 * processes put in place. 
+	 * 
+	 * @param offeringToUse The {@link Offering} to process.
+	 * @param directory The local directory to create/ un-zip content.
+	 * @return The file where the content is stored. The file extension is taken from the last 
+	 * part of the offering getCode() method.
+	 *   
+	 * @throws Exception 
+	 */
+	public static File getContextContent(Offering offeringToUse, File directory) throws Exception {
+		/* Am not expecting more than one local file within a single
+		 * offering */
+		directory.mkdirs();
+		
+		String ext = offeringToUse.getCode().toString();
+		ext = ext.substring(ext.lastIndexOf("/")+1);
+		File localFile = null;
+		URI uri = offeringToUse.getContents().get(0).getURI();
+
+		if (uri==null) {
+
+			localFile = new File(directory, offeringToUse.getID()+"."+ext );
+			// This has to be in-line content, so make a single file to read from
+			if (localFile.exists()) return localFile;
+			
+			contextContentsToFile(offeringToUse, localFile);
+
+		} else {
+
+			// Build a file name to download to under a Dataset specific directory
+			localFile = new File(directory, new File(uri.getPath()).getName() );
+
+			if (localFile.exists()) {
+				
+				localFile = FileIO.getFirstFile(directory, ext);
+				
+			} else {
+
+				// Pull down the content to a local file
+				WebRequest wr = new WebRequest( uri.toString() );
+				InputStream is = wr.openConnection();
+				FileIO.streamCopy(is, new FileOutputStream(localFile) );
+
+				/* Could be a zip file containing multiple files (i.e shape), so decompress
+				 * and get the first file matching our extension */
+				FileIO.unZipArchive( localFile.toString(), directory.toString() );
+				localFile = FileIO.getFirstFile(directory, ext);
+
+			}
+		}
+		
+		return localFile;
+	}
 	/** Copy an inputstream to an output stream. Generally used for saving 
 	 * to disk from download. Both streams are closed on completion.
 	 * 
