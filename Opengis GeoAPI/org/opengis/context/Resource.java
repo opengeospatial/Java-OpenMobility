@@ -128,7 +128,7 @@ public interface Resource {
 	 * 
 	 * @return
 	 */
-	public boolean getActive();
+	public boolean isActive();
 	/** Keyword related to this resource definition. Shall support an optional codelist parameter. 
 	 * 
 	 * @return

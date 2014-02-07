@@ -134,7 +134,7 @@ public class ResourceImpl implements Resource {
 	}
 
 	@Override
-	public boolean getActive() {
+	public boolean isActive() {
 		return resourceValues.get("active")==null ? false : 
 			Boolean.valueOf(String.valueOf(resourceValues.get("active")));
 	}
