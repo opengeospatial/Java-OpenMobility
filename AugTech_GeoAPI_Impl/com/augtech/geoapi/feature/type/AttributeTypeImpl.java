@@ -113,21 +113,15 @@ public class AttributeTypeImpl extends PropertyTypeImpl implements AttributeType
 	
 	@Override
 	public boolean equals(Object other) {
-	    if(this == other)
-            return true;
+	    if(this == other) return true;
 	    
-		if (!(other instanceof AttributeType)) {
-			return false;
-		}
+		if (!(other instanceof AttributeType)) return false;
 
-		if (!super.equals(other)) 
-			return false;
+		if (!super.equals(other)) return false;
 		
 		AttributeType att = (AttributeType) other;
 		
-		if (identified != att.isIdentified()) {
-			return false;
-		}
+		if (identified != att.isIdentified()) return false;
 	
 		return true;
 	}
