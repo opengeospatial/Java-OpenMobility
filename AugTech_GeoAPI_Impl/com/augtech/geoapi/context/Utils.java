@@ -27,7 +27,7 @@ import org.opengis.context.Content;
 import org.opengis.context.Offering;
 import org.opengis.context.Operation;
 
-import com.augtech.awilaSDK.utils.FileIO;
+import com.augtech.geoapi.utils.DataUtilities;
 import com.augtech.geoapi.utils.WebRequest;
 
 /** A few utilities to aid processing Context Document information
@@ -159,24 +159,36 @@ public class Utils {
 
 			if (localFile.exists()) {
 				
-				localFile = FileIO.getFirstFile(directory, ext);
+				localFile = getFirstFile(directory, ext);
 				
 			} else {
 
 				// Pull down the content to a local file
 				WebRequest wr = new WebRequest( uri.toString() );
 				InputStream is = wr.openConnection();
-				FileIO.streamCopy(is, new FileOutputStream(localFile) );
+				streamCopy(is, new FileOutputStream(localFile) );
 
 				/* Could be a zip file containing multiple files (i.e shape), so decompress
 				 * and get the first file matching our extension */
-				FileIO.unZipArchive( localFile.toString(), directory.toString() );
-				localFile = FileIO.getFirstFile(directory, ext);
+				DataUtilities.unZipArchive( localFile.toString(), directory.toString() );
+				localFile = getFirstFile(directory, ext);
 
 			}
 		}
 		
 		return localFile;
+	}
+	/** Get the first file with a matching file extension within a directory.
+	 * 
+	 * @param directory
+	 * @param ext
+	 * @return
+	 */
+	static File getFirstFile(File directory, String ext) {
+		for (File f : directory.listFiles()) {
+			if (f.toString().endsWith(ext)) return f;
+		}
+		return null;
 	}
 	/** Copy an inputstream to an output stream. Generally used for saving 
 	 * to disk from download. Both streams are closed on completion.
