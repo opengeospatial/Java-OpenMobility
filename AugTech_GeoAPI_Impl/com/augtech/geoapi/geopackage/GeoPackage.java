@@ -1127,7 +1127,8 @@ public class GeoPackage {
 	 * If there are multiple feature types within the collection they are
 	 * automatically split to their corresponding tables.
 	 * The table name to insert into is taken from the local part of
-	 * the {@link FeatureType#getName()}.
+	 * the {@link FeatureType#getName()}.<p>
+	 * The relevant tables must already exist in the GeoPackage.
 	 * 
 	 * @param features
 	 * @return The number of records inserted
@@ -1137,14 +1138,14 @@ public class GeoPackage {
 		
 		/* Features within the collection could be different types, so split
 		 * in to seperate lists for batch insertion */
-		Map<Name, List<SimpleFeature>> typeList = new HashMap<Name, List<SimpleFeature>>();
+		Map<Name, List<SimpleFeature>> sfByType = new HashMap<Name, List<SimpleFeature>>();
 		for (SimpleFeature sf : features) {
 			Name tName = sf.getType().getName();
-			List<SimpleFeature> thisType = typeList.get(tName);
+			List<SimpleFeature> thisType = sfByType.get(tName);
 			
 			if (thisType==null) {
 				thisType = new ArrayList<SimpleFeature>();
-				typeList.put(tName, thisType);
+				sfByType.put(tName, thisType);
 			}
 			thisType.add(sf);
 			
@@ -1154,7 +1155,7 @@ public class GeoPackage {
 		FeaturesTable featTable = null;
 		
 		// For each set of feature's in our individual lists..
-		for (Map.Entry<Name, List<SimpleFeature>> e : typeList.entrySet()) {
+		for (Map.Entry<Name, List<SimpleFeature>> e : sfByType.entrySet()) {
 			
 			featTable = (FeaturesTable)getUserTable( 
 					e.getKey().getLocalPart(), GpkgTable.TABLE_TYPE_FEATURES );
@@ -1185,7 +1186,7 @@ public class GeoPackage {
 			insertVals = null;
 		}
 		
-		typeList = null;
+		sfByType = null;
 		
 		if (numInserted>0) updateLastChange(featTable.getTableName(), featTable.getTableType());
 		
@@ -1255,10 +1256,13 @@ public class GeoPackage {
 				value = feature.getID();
 			} else {
 				int idx = type.indexOf( field.getFieldName() );
-				//This field isn't defined on the feature type, so can't insert value
-				if (idx==-1 || idx > type.getAttributeCount()) continue; 
-				
-				value = feature.getAttribute(idx);
+				/* If the field is not available on the type, set to null to ensure
+				 * the value list matches the table definition */
+				if (idx==-1 || idx > type.getAttributeCount()) {
+					value = null; 
+				} else {
+					value = feature.getAttribute(idx);
+				}
 			}
 
 			passConstraint = true;
