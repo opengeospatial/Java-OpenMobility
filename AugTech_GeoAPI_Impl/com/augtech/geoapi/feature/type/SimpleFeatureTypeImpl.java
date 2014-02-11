@@ -282,7 +282,8 @@ public class SimpleFeatureTypeImpl implements SimpleFeatureType {
 	 */
 	@Override
 	public InternationalString getDescription() {
-		return new InternationalStringImpl( String.valueOf( userdata.get(USER_DATA.DESCRIPTION) ) );
+		String d = String.valueOf( userdata.get(USER_DATA.DESCRIPTION) );
+		return new InternationalStringImpl( d.equals("") ? name.getLocalPart() : d );
 	}
 	@Override
 	public Name getName() {
@@ -460,17 +461,21 @@ public class SimpleFeatureTypeImpl implements SimpleFeatureType {
 			return false;
 		if (!(obj instanceof SimpleFeatureTypeImpl))
 			return false;
+		
 		SimpleFeatureTypeImpl other = (SimpleFeatureTypeImpl) obj;
-		if (attributeTypes == null) {
-			if (other.attributeTypes != null)
-				return false;
-		} else if (!attributeTypes.equals(other.attributeTypes))
-			return false;
+
 		if (name == null) {
 			if (other.name != null)
 				return false;
 		} else if (!name.equals(other.name))
 			return false;
+		
+		if (attributeTypes == null) {
+			if (other.attributeTypes != null)
+				return false;
+		} else if (!attributeTypes.equals(other.attributeTypes))
+			return false;
+		
 		return true;
 	}
 	
