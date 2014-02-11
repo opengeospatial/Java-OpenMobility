@@ -541,6 +541,20 @@ public class GeoPackage {
 	public List<SimpleFeature> getFeatures(String tableName, BoundingBox bbox) throws Exception {
 		return getFeatures(tableName, bbox, true, true, new StandardGeometryDecoder() );
 	}
+	/** Get all the features from the supplied table name.<p>
+	 * This method is not recommended if you don't know how many features are in a table, 
+	 * but is provided for convenience as its the equivalent of;<p>
+	 * <code>FeaturesTable featTable = (FeaturesTable)getUserTable( tableName, GpkgTable.TABLE_TYPE_FEATURES );<br>
+	 * getFeatures("SELECT * FROM ["+tableName+"]", featTable, new StandardGeometryDecoder() );</code>
+	 * 
+	 * @param tableName
+	 * @return
+	 * @throws Exception
+	 */
+	public List<SimpleFeature> getFeatures(String tableName) throws Exception {
+		FeaturesTable featTable = (FeaturesTable)getUserTable( tableName, GpkgTable.TABLE_TYPE_FEATURES );
+		return getFeatures("SELECT * FROM ["+tableName+"]", featTable, new StandardGeometryDecoder() );
+	}
 	/** Get a list of {@link SimpleFeature} from the GeoPackage by specifying a where clause
 	 * (for example {@code featureId='pipe.1234'} or {@code id=1234} )
 	 * 
@@ -751,7 +765,13 @@ public class GeoPackage {
 
 				// Create new list so previous values are not overridden 
 				attrValues = new ArrayList<Object>();
-				fid = null;
+				
+				// Get our feature ID or build from primary key
+				if (featureFieldName.equals("")) {
+					fid = featTable.getTableName()+"."+featRecords.getFieldInt(rIdx, pk);
+				} else {
+					fid = featRecords.getFieldString(rIdx, featureFieldName);
+				}
 				
 				/* For each type definition, get the value, ensuring the 
 				 * correct order is maintained on the value list*/
@@ -760,13 +780,7 @@ public class GeoPackage {
 					fieldName = attrTypes.get( typeIdx ).getName().getLocalPart();
 					value = featRecords.get(rIdx).get( featRecords.getFieldIdx(fieldName) );
 					
-					// If defined as the feature's ID, store for feature creation
-					if ( fieldName.equals(featureFieldName) ) {
-						
-						fid = String.valueOf( value );
-						continue; // Add as ID, not an attribute
-						
-					} else if (fieldName.equals(geomInfo.getColumnName())) {
+					if (fieldName.equals(geomInfo.getColumnName())) {
 						
 						// If geometry column, decode to actual Geometry
 						value = geomDecoder.setGeometryData( (byte[])value ).getGeometry();
@@ -777,9 +791,6 @@ public class GeoPackage {
 					
 				}
 				attrValues.trimToSize();
-				
-				// Get or create a feature id?
-				if (fid==null || fid.equals("null")) fid = featTable.getTableName()+"."+recCount;
 
 				// Create the feature and add to list of all features
 				allFeats.add( new SimpleFeatureImpl(fid, attrValues, featureType ) );
@@ -793,7 +804,10 @@ public class GeoPackage {
 		featRecords = null;
 		geomDecoder.clear();
 		
-		log.log(Level.INFO, recCount+" features built in "+(System.currentTimeMillis()-startTime)/1000+" secs");
+		log.log(Level.INFO,
+				String.format("%s %s feature(s) built in %s seconds",
+						recCount,featTable.getTableName(),(System.currentTimeMillis()-startTime)/1000)
+						);
 		
 		return allFeats;
 		
@@ -1601,6 +1615,9 @@ public class GeoPackage {
 	 * @return
 	 */
 	public Class<?> decodeType(String sqlType) {
+		
+		// If a charecture restricted text, just check for 'text'
+		if (sqlType.toLowerCase().startsWith("text")) sqlType = "TEXT";
 		
 		JavaType jType = sqlTypeMap.get(sqlType.toLowerCase());
 		if (jType==null || jType==JavaType.UNKNOWN) 
