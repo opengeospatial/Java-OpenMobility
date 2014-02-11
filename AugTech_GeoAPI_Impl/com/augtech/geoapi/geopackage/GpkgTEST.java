@@ -428,24 +428,37 @@ public class GpkgTEST {
 			setTestMsg(fb, feats.size()+" images(s) read direct by query from "+table);
 
 			// Get a set of tiles within/ across a bounding box
-			feats = geoPackage.getTiles(table, bbox, 10);
-			setTestMsg(fb, feats.size()+" images(s) read by BBOX query from "+table);
+			int zoom = 10;
+			feats = geoPackage.getTiles(table, bbox, zoom);
+			setTestMsg(fb, feats.size()+" images(s) read by BBOX query from "+table+" at zoom "+zoom);
+			
+			// Get a set of tiles within/ across a bounding box
+			zoom = 4;
+			feats = geoPackage.getTiles(table, bbox, zoom);
+			setTestMsg(fb, feats.size()+" images(s) read by BBOX query from "+table+" at zoom "+zoom);
 			
 			// Vector...
 			crs = new CoordinateReferenceSystemImpl("4326");
 			bbox = new BoundingBoxImpl(-73, -71, 17.5, 19.1, crs);
 			table = "geonames";
 			
-			// Get all features from a table
-			feats = geoPackage.getFeatures(table, "", new StandardGeometryDecoder());
-			setTestMsg(fb, feats.size()+" "+table+" feature(s) read.");
-
-			// Get all features within a bounding box
+			// Get all features from a table via bbox
 			feats = geoPackage.getFeatures(table, bbox);
-			setTestMsg(fb, feats.size()+" "+table+" feature(s) read via bbox query!");
+			setTestMsg(fb, feats.size()+" feature(s) read by BBOX query from "+table);
 
-			feats = geoPackage.getFeatures(table, bbox);
-			setTestMsg(fb, feats.size()+" "+table+" feature(s) read via bbox query!");
+			// Get all features within a bounding box from all feature tables
+			List<GpkgTable> ts = geoPackage.getUserTables(GpkgTable.TABLE_TYPE_FEATURES);
+			
+			for (GpkgTable gt : ts) {
+				table = gt.getTableName();
+				try {
+				feats = geoPackage.getFeatures(table);
+				setTestMsg(fb, feats.size()+" feature(s) read via bbox query from "+table);
+				} catch (Exception e) {
+					setTestMsg(fb, "Error: "+e.getLocalizedMessage()+" reading from "+table);
+					e.printStackTrace();
+				}
+			}
 			
 			break;
 		}
