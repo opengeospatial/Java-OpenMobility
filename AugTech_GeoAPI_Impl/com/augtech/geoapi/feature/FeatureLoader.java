@@ -142,10 +142,10 @@ public abstract class FeatureLoader extends ArrayList<SimpleFeature> {
 	 * Has no effect if no GeoPackage
 	 * 
 	 * @return The total number of features inserted in to the GeoPackage,
-	 * or -1 if no GeoPackage has been supplied.
+	 * or the number of features in the backing list if no GeoPackage has been supplied.
 	 */
 	public final int commit() {
-		if (!loadToGpkg || geoPackage==null) return -1;
+		if (!loadToGpkg || geoPackage==null) return this.size();
 		
 		try {
 			featuresInserted += geoPackage.insertFeatures( this );
