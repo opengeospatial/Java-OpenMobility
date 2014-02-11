@@ -122,22 +122,6 @@ public abstract class PropertyTypeImpl implements PropertyType {
 		if (!binding.equals( prop.getBinding())) {
 		    return false;
 		}
-		
-		if (isAbstract != prop.isAbstract()) {
-			return false;
-		}
-
-		if (!equals(getRestrictions(), prop.getRestrictions())) {
-			return false;
-		}
-		
-		if (!superType.equals( prop.getSuper())) {
-		    return false;
-		}
-		
-		if (!description.equals( prop.getDescription())) {
-			return false;
-		}
 
 		return true;
 	}
