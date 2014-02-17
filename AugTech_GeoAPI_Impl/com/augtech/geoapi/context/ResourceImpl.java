@@ -79,7 +79,7 @@ public class ResourceImpl implements Resource {
 
 	@Override
 	public Content getAbstract() {
-		return (Content) resourceValues.get("abstract");
+		return (Content) resourceValues.get("content");
 	}
 
 	@Override

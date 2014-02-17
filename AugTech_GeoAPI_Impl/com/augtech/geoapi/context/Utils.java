@@ -22,6 +22,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.net.URI;
+import java.util.List;
 
 import org.opengis.context.Content;
 import org.opengis.context.Offering;
@@ -38,6 +39,37 @@ import com.augtech.geoapi.utils.WebRequest;
 public class Utils {
 	static final int BUFFER = 1024;
 	
+	/** Get an offering that has a self referencing GeoPackage - i.e. The one that
+	 * has the details about the GeoPacakge that this resource is stored in :/
+	 * 
+	 * @param r The Resource to scan
+	 * @return The Offering or Null if not found
+	 */
+	public static Offering getGpkgSelf(List<Offering> offerings) {
+		if (offerings==null || offerings.size()==0) return null;
+		
+		// If only one and that is a gpkg, use that
+		if (offerings.size()==1) {
+			if (offerings.get(0).getCode().toString().toLowerCase().endsWith("gpkg")) {
+				return offerings.get(0);
+			}
+		}
+		
+		// If more than one, check for _self reference
+		for (int o=0; o < offerings.size(); o++ ) {
+			Offering offer = offerings.get(o);
+			if (offer.getCode().toString().toLowerCase().endsWith("gpkg")) {
+				if (offer.getContents()==null) continue;
+
+				for (Content c : offer.getContents()) {
+					if (c.getURI().toString().toLowerCase().equals("_self")) {
+						return offer;
+					}
+				}
+			}
+		}
+		return null;
+	}
 	/** Get a comma separated String of feature type names the offering is restricted
 	 * to.
 	 * 

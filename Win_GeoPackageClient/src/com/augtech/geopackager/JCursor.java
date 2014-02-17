@@ -1,4 +1,4 @@
-package com.augtech.geopackager;
+package com.augtech.owscontext;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 
