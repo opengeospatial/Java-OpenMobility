@@ -23,6 +23,8 @@ import org.opengis.referencing.operation.TransformException;
 import com.augtech.geoapi.referncing.CoordinateReferenceSystemImpl;
 import com.vividsolutions.jts.geom.Coordinate;
 import com.vividsolutions.jts.geom.Envelope;
+import com.vividsolutions.jts.geom.Geometry;
+import com.vividsolutions.jts.geom.GeometryFactory;
 /** Extends the JTS {@link Envelope} to include a spatial reference name,
  * z coordinate and projection methods.<br>
  * <b>Note</b> that if the projection methods {@link #toBounds(CoordinateReferenceSystem)}, 
@@ -116,7 +118,24 @@ public class BoundingBoxImpl extends Envelope implements BoundingBox {
     public double getMaxZ() {
     	return this.maxz;
     }
-
+    /** Return this BoundingBox as a closed polygon geometry.
+     * 
+     * @return
+     */
+    public Geometry toPolygon() {
+    	GeometryFactory gf = new GeometryFactory();
+    	Coordinate[] lr = new Coordinate[]{
+    			new Coordinate(getMinX(), getMinY(), 0),
+    			new Coordinate(getMinX(), getMaxY(), 0),
+    			new Coordinate(getMaxX(), getMaxY(), 0),
+    			new Coordinate(getMaxX(), getMinY(), 0),
+    			new Coordinate(getMinX(), getMinY(), 0)
+    	};
+    	Geometry g = gf.createPolygon(gf.createLinearRing(lr), null);
+    	g.setSRID(Integer.valueOf( this.CRS.getName().getCode()) );
+    	
+    	return g;
+    }
     /**
      * Creates a new envelope from an existing envelope.
      *

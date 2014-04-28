@@ -44,6 +44,7 @@ import com.augtech.geoapi.geopackage.GpkgRecords;
 import com.augtech.geoapi.geopackage.GpkgTable;
 import com.augtech.geoapi.geopackage.ICursor;
 import com.augtech.geoapi.geopackage.ISQLDatabase;
+import com.augtech.geoapi.geopackage.geometry.StandardGeometryDecoder;
 import com.augtech.geoapi.geopackage.table.GpkgDataColumnConstraint.DataColumnConstraint;
 import com.augtech.geoapi.geopackage.table.GpkgExtensions.Extension;
 import com.augtech.geoapi.referncing.CoordinateReferenceSystemImpl;
@@ -62,8 +63,10 @@ public class FeaturesTable extends GpkgTable {
 	GeoPackage geoPackage = null;
 	GeometryInfo geometryInfo = null;
 	
-	/** Create a new FeaturesTable. The tables feature id field (if required)
-	 * will be set to 'feature_id'.
+	/** Contrcut a new FeaturesTable.<p>
+	 * Note that the table will neither be created, or populated from, the GeoPackage
+	 * until one of the relevant methods are called, such as {@link #create(SimpleFeatureType, BoundingBox)}.<p>
+	 *  The tables feature id field (if required) will be set to 'feature_id'.
 	 * 
 	 * @param geoPackage The GeoPackage this table relates to
 	 * @param tableName The name of the table. Any spaces will be replaced by '_'
@@ -74,9 +77,9 @@ public class FeaturesTable extends GpkgTable {
 	public FeaturesTable(GeoPackage geoPackage, String tableName) {
 		this(geoPackage, tableName, GeoPackage.FEATURE_ID_FIELD_NAME);
 	}
-	/** Create a new FeaturesTable.<p>
+	/** Contrcut a new FeaturesTable.<p>
 	 * Note that the table will neither be created, or populated from, the GeoPackage
-	 * until one of the relevant methods are called.
+	 * until one of the relevant methods are called, such as {@link #create(SimpleFeatureType, BoundingBox)}.<p>
 	 * 
 	 * @param geoPackage The GeoPackage this table relates to
 	 * @param tableName The name of the table. Any spaces will be replaced by '_'
@@ -363,6 +366,17 @@ public class FeaturesTable extends GpkgTable {
 		
 		return featureType;
 	}
+	/** Get a list of {@link SimpleFeature} from the GeoPackage by specifying a where clause
+	 * (for example {@code featureId='pipe.1234'} or {@code id=1234} ).
+	 * This method calls the {@link GeoPackage#getFeatures(String, String, com.augtech.geoapi.geopackage.geometry.GeometryDecoder)}
+	 * method with a {@link StandardGeometryDecoder}.
+	 * 
+	 * @param strWhere The where clause.
+	 * @return A List of {@link SimpleFeature}'s matching the where clause.
+	 */ 
+	public List<SimpleFeature> getFeatures(String strWhere) throws Exception {
+		return geoPackage.getFeatures(this.tableName, strWhere, new StandardGeometryDecoder());
+	}
 	/** Issue a raw query on this table using a where clause
 	 * 
 	 * @param strWhere The where clause excluding the 'where'
@@ -523,7 +537,22 @@ public class FeaturesTable extends GpkgTable {
 		getContents();
 		return super.getBounds();
 	}
-
+	/** Get the name of the Feature ID field.
+	 * If one doesn't exist the name of the primary ket is returned.
+	 * 
+	 * @return
+	 */
+	public String getFeatureIDField() {
+		getContents();
+		String featureFieldName = "id";
+		for (GpkgField gf : this.getFields() ) {
+			if ( ((FeatureField)gf).isFeatureID() ) {
+				featureFieldName = gf.getFieldName();
+				break;
+			}
+		}
+		return featureFieldName;
+	}
 	/**
 	 * @return the lastChange
 	 */

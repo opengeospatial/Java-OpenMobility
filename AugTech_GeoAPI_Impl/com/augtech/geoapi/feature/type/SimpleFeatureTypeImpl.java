@@ -159,7 +159,8 @@ public class SimpleFeatureTypeImpl implements SimpleFeatureType {
 	 * 
 	 * @param name The name of the FeatureType
 	 * @param attributeTypes A list of AttributeType's to retrieve from the server/ load
-	 * by default. If null then only the geometry attribute is created (as is required by all features)
+	 * by default. If null then only the geometry attribute is created (as is required by all features).
+	 * If not null, the geometry attribute <i>must be</i> in the attribute list provided. 
 	 * @param defaultGeom Descriptor of the Geometry field
 	 */
 	public SimpleFeatureTypeImpl(Name name, List<AttributeType> attributeTypes, GeometryDescriptor defaultGeom) {
@@ -170,7 +171,8 @@ public class SimpleFeatureTypeImpl implements SimpleFeatureType {
 	 * @param id The FeatureType id
 	 * @param name The name implementation to be used for finding and displaying this type
 	 * @param attributeTypes A list of AttributeType's to retrieve from the server/ load
-	 * by default. If null then only the geometry attribute is created (as is required by all features)
+	 * by default. If null then only the geometry attribute is created (as is required by all features).
+	 * If not null, the geometry attribute <i>must be</i> in the attribute list provided.
 	 * @param defaultGeom Descriptor of the Geometry field
 	 */
 	public SimpleFeatureTypeImpl(int id, Name name, List<AttributeType> attributeTypes, GeometryDescriptor defaultGeom) {

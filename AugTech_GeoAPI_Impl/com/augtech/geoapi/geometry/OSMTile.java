@@ -1,6 +1,9 @@
 package com.augtech.geoapi.geometry;
 
+import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Set;
 
 import org.opengis.geometry.BoundingBox;
@@ -104,7 +107,7 @@ public class OSMTile {
 				(float) (Math.floor((diam * 10)+0.5))/10 };// Round to 1dp
 	}
 	/** Get the four sub-tiles (the next smallest tiles)
-	 * 
+	 * Order is top-left to top-right, bottom-left, bottom-right
 	 * @return int[4][] containing the sub-tile references
 	 */
 	public OSMTile[] getOSMSubTiles() {
@@ -116,6 +119,24 @@ public class OSMTile {
 		res[3] = new OSMTile((2*xRef)+1, (2*yRef)+1, zoom+1);
 
 		return res;
+	}
+	/**
+	 * 
+	 * @param tiles
+	 * @return
+	 */
+	public static List<String> getSortedList(OSMTile[] tiles) {
+		List<String> tileIDs = new ArrayList<String>();
+		for (OSMTile o : tiles) tileIDs.add(o.toString());
+		// Swap so sort works in our texture order
+		for (int t=0; t<tileIDs.size(); t++) tileIDs.set(t, swapXY(tileIDs.get(t)) );
+		Collections.sort(tileIDs);
+		for (int t=0; t<tileIDs.size(); t++) tileIDs.set(t, swapXY(tileIDs.get(t)) );
+		return tileIDs;
+	}
+	private static String swapXY(String val) {
+		String[] s = val.split("-");
+		return String.format("%s-%s-%s",s[1], s[0], s[2]);
 	}
 	/** Get the parent (next biggest) tile to this one
 	 * 

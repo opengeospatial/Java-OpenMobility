@@ -60,4 +60,9 @@ public interface ContextDocumentReader {
 	 */
 	public Set<String> getExtensionNameSpaces();
 	
+	/** Retrieve the {@link Context} document from this reader
+	 * 
+	 * @return
+	 */
+	public Context getContextDoc();
 }

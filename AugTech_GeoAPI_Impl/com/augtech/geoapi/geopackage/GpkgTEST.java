@@ -46,7 +46,8 @@ import com.augtech.geoapi.geopackage.geometry.StandardGeometryDecoder;
 import com.augtech.geoapi.geopackage.table.FeaturesTable;
 import com.augtech.geoapi.geopackage.table.TilesTable;
 import com.augtech.geoapi.referncing.CoordinateReferenceSystemImpl;
-import com.augtech.geoapi.utils.DataUtilities;
+import com.augtech.geoapi.utils.FileIO;
+
 import com.vividsolutions.jts.geom.Geometry;
 
 /** A test layer that utilises some of the Aug-Tech GeoAPI facilities 
@@ -189,7 +190,7 @@ public class GpkgTEST {
 		InputStream gmlRes = this.getClass().getResourceAsStream(TEST_GML_FILE);
 		File gmlFile = new File(System.getProperty("java.io.tmpdir"), "tmpGml.gml");
 		if (gmlFile.exists()) gmlFile.delete();
-		DataUtilities.streamCopy(gmlRes, new FileOutputStream(gmlFile));
+		FileIO.streamCopy(gmlRes, new FileOutputStream(gmlFile));
 		
 		if (!gmlFile.exists()) return false;
 		

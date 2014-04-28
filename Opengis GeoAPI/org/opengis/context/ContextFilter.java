@@ -18,6 +18,7 @@ package org.opengis.context;
 import java.util.Map;
 import java.util.Set;
 
+import org.xml.sax.SAXException;
 import org.xml.sax.XMLFilter;
 
 /** An interface for ATOM entry elements to pass information
@@ -45,7 +46,7 @@ public interface ContextFilter extends XMLFilter {
 	 * 
 	 * @param values
 	 */
-	public void buildWhereGeometry(Map<String, Object> entryValues);
+	public void buildWhereGeometry(Map<String, Object> entryValues) throws SAXException;
 	/** Get the contents of the current Content buffer up to and
 	 * including the last tag name matching qName.
 	 * 

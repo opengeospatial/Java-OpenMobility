@@ -47,7 +47,7 @@ import com.vividsolutions.jts.geom.Geometry;
  * @author Augmented Technologies Ltd
  *
  */
-public class FeatureCollection extends CopyOnWriteArrayList<SimpleFeature> {
+public class FeatureCollection extends ArrayList<SimpleFeature> {
 	private static final long serialVersionUID = -926972509429116720L;
 	
 	/** All features in this collection by their FeatureType name */
@@ -290,7 +290,9 @@ public class FeatureCollection extends CopyOnWriteArrayList<SimpleFeature> {
 	 * @return
 	 */
 	public Set<SimpleFeature> getFeaturesForTile(OSMTile tileIdx) {
-		return tileIndex.get( tileIdx );
+		synchronized (tileIndex) {
+			return tileIndex.get( tileIdx );
+		}
 	}
 	/** Get all features associated with a specific zoom level.
 	 * In the case of vector features this will be everything in the collection

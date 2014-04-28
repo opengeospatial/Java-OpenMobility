@@ -123,14 +123,8 @@ public class ContextFilterImpl extends XMLFilterImpl implements ContextFilter {
 		contextAdapter.parse(inputSource);
 	}
 	@Override
-	public void parse(InputSource inSource) {
-		try {
-			parse();
-		} catch (IOException e) {
-			e.printStackTrace();
-		} catch (SAXException e) {
-			e.printStackTrace();
-		}
+	public void parse(InputSource inSource) throws IOException, SAXException {
+		parse();
 	}
 	@Override
 	public void characters(char[] ch, int start, int length)
@@ -151,7 +145,7 @@ public class ContextFilterImpl extends XMLFilterImpl implements ContextFilter {
 	 * @return
 	 */
 	@Override
-	public void buildWhereGeometry(Map<String, Object> valueMap) {
+	public void buildWhereGeometry(Map<String, Object> valueMap) throws SAXException {
 		nextWhereGeom = valueMap;
 		// Create a new source to parse from the String
 		StringBuffer sb = new StringBuffer();
@@ -164,9 +158,7 @@ public class ContextFilterImpl extends XMLFilterImpl implements ContextFilter {
 		try {
 			gmAdapter.parse( gSource );
 		} catch (IOException e) {
-			e.printStackTrace();
-		} catch (SAXException e) {
-			e.printStackTrace();
+			throw new SAXException(e);
 		}
 
 	}
@@ -293,9 +285,11 @@ public class ContextFilterImpl extends XMLFilterImpl implements ContextFilter {
 					-1) );
 		} else if (localName.equals(Author.TAG)) {
 			collectTags = false;
+			insideDisplay = false;
 			feedValues.put(localName, new AuthorImpl(collectedValues) );
 		} else if (localName.equals(CreatorDisplay.TAG)) {
 			collectTags = false;
+			insideDisplay = false;
 			feedValues.put(localName, new CreatorDisplayImpl(collectedValues, extensions.get(localName) ) );
 			resetExtensions(localName);
 		} else if (localName.equals(CreatorApplication.TAG)) {
