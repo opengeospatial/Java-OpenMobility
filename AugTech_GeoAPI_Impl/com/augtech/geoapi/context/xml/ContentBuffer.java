@@ -18,6 +18,7 @@ package com.augtech.geoapi.context.xml;
 import java.io.FilterInputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.util.StringTokenizer;
 
 import org.opengis.context.ContextFilter;
 
@@ -69,10 +70,20 @@ public class ContentBuffer extends FilterInputStream {
 
 		/* Ensure we look for a closing tag */
 		qName = "</"+qName;
-		int l = buffer.indexOf(qName)+qName.length()+1;
-		if (l!=-1 && l<buffer.length()) {
-			String s = buffer.substring(0, l);
-			buffer.delete(0, l);
+		int idx = buffer.indexOf(qName);
+		if (idx==-1 && qName.contains(":")) {
+			String[] t = qName.split(":");
+			if (t==null || t.length<2 ) return "";
+			String loc = "</"+t[1];
+			idx = buffer.indexOf(loc);
+			idx+=loc.length()+1;
+		} else {
+			idx+=qName.length()+1;
+		}
+
+		if (idx < buffer.length()) {
+			String s = buffer.substring(0, idx);
+			buffer.delete(0, idx);
 			return s;
 		} else {
 			return "";
