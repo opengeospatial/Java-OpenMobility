@@ -22,13 +22,14 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.net.URI;
+import java.net.URISyntaxException;
 import java.util.List;
 
 import org.opengis.context.Content;
 import org.opengis.context.Offering;
 import org.opengis.context.Operation;
 
-import com.augtech.geoapi.utils.DataUtilities;
+import com.augtech.geoapi.utils.FileIO;
 import com.augtech.geoapi.utils.WebRequest;
 
 /** A few utilities to aid processing Context Document information
@@ -48,6 +49,8 @@ public class Utils {
 	public static Offering getGpkgSelf(List<Offering> offerings) {
 		if (offerings==null || offerings.size()==0) return null;
 		
+		Offering gpkgOffering = null;
+		
 		// If only one and that is a gpkg, use that
 		if (offerings.size()==1) {
 			if (offerings.get(0).getCode().toString().toLowerCase().endsWith("gpkg")) {
@@ -59,6 +62,7 @@ public class Utils {
 		for (int o=0; o < offerings.size(); o++ ) {
 			Offering offer = offerings.get(o);
 			if (offer.getCode().toString().toLowerCase().endsWith("gpkg")) {
+				gpkgOffering = offer;
 				if (offer.getContents()==null) continue;
 
 				for (Content c : offer.getContents()) {
@@ -68,15 +72,19 @@ public class Utils {
 				}
 			}
 		}
-		return null;
+		
+		/* If we did find a Gpkg, but got this far then it has no _self
+		 * reference, we'll return the one we found */
+		return gpkgOffering!=null ? gpkgOffering : null;
 	}
 	/** Get a comma separated String of feature type names the offering is restricted
 	 * to.
 	 * 
 	 * @param offering
 	 * @return
+	 * @throws URISyntaxException 
 	 */
-	public static String getTypesFromOffering(Offering offering) {
+	public static String getTypesFromOffering(Offering offering) throws URISyntaxException {
 		String oCode = "";
 		
 		for (Operation o : offering.getOperations()) {
@@ -88,9 +96,10 @@ public class Utils {
 				// WMS
 				return getLayerFromURL(o.getURI(), "layers");
 
-			} else if (oCode.equals("GetTables")) {
+			} else if (oCode.equals("GetFeatures") || oCode.equals("GetTables")) {
 				// GeoPackage
-				return o.getURI().toString().trim();
+				String s = o.getURI().trim();
+				return s.startsWith("#") ? s.substring(1) : s;
 				
 			} else if (oCode.equals("GetTile")) {
 				// WMTS
@@ -100,7 +109,8 @@ public class Utils {
 		
 		return "*";
 	}
-	private static String getLayerFromURL(URI uri, String paramName) {
+	private static String getLayerFromURL(String sUri, String paramName) throws URISyntaxException {
+		URI uri = new URI(sUri);
 		for (String s : uri.getQuery().toLowerCase().split("&")) {
 			if (s.startsWith(paramName)) return s.split("=")[1];
 		}
@@ -194,7 +204,7 @@ public class Utils {
 				localFile = getFirstFile(directory, ext);
 				
 			} else {
-
+				
 				// Pull down the content to a local file
 				WebRequest wr = new WebRequest( uri.toString() );
 				InputStream is = wr.openConnection();
@@ -202,9 +212,10 @@ public class Utils {
 
 				/* Could be a zip file containing multiple files (i.e shape), so decompress
 				 * and get the first file matching our extension */
-				DataUtilities.unZipArchive( localFile.toString(), directory.toString() );
+				FileIO.unZipArchive( localFile.toString(), directory.toString() );
 				localFile = getFirstFile(directory, ext);
 
+				System.out.println("getContextContent: Got local file "+String.valueOf(localFile) );
 			}
 		}
 		
