@@ -51,7 +51,7 @@ public interface Operation {
 	 * 
 	 * @return
 	 */
-	public URI getURI();
+	public String getURI();
 	/** Optional request body content.<p>
 	 * 
 	 * Note not necessarily XML (defined by MIMEType).

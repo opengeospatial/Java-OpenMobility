@@ -15,8 +15,6 @@
  */
 package com.augtech.geoapi.context;
 
-import java.net.URI;
-import java.net.URISyntaxException;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -30,7 +28,7 @@ import org.opengis.context.Operation;
  *
  */
 public class OperationImpl implements Operation {
-	URI uri;
+	String uri;
 	Map<String, Object> values = new HashMap<String, Object>();
 	Map<String, String> extensions = new HashMap<String, String>();
 	/**
@@ -39,10 +37,7 @@ public class OperationImpl implements Operation {
 	 */
 	public OperationImpl(Map<String, Object> values, Map<String, String> extensions) {
 		this.values = values;
-		Object o = values.get("href");
-		try {
-			uri = o!=null ? new URI(String.valueOf(o)) : null;
-		} catch (URISyntaxException ignore) { }
+		uri = String.valueOf(values.get("href"));
 
 		if (extensions!=null) this.extensions = extensions;
 	}
@@ -63,7 +58,7 @@ public class OperationImpl implements Operation {
 	}
 
 	@Override
-	public URI getURI() {
+	public String getURI() {
 		return uri;
 	}
 

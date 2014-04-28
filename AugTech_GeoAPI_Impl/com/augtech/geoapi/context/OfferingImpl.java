@@ -86,14 +86,16 @@ public class OfferingImpl implements Offering {
 			// Use the hash code of the first GetCapabilities request URL
 			for (Operation o : operations) {
 				if (o.getCode().equals("GetCapabilities")) {
-					return o.getURI().toString().hashCode();
+					return o.getURI().hashCode();
 				}
 			}
 			
 		} else {
 			/* GML, KML, GEOTIFF, GMLJP2 and GMLCOV have 
 			 * Inline content or Local reference */
-			return contents.get(0).hashCode();
+			if (contents.size()>0) {
+				return contents.get(0).hashCode();	
+			}
 		}
 		
 		return UUID.randomUUID().toString().hashCode();
