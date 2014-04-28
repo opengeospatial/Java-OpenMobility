@@ -202,8 +202,12 @@ public class GeoPackage {
 		/* If the file alread exists, check it is a valid geopackage */
 		if (dbFile.exists()) {
 
-			if (!isGPKGValid(false)) 
+			if (!isGPKGValid(false)) {
+				try {
+					close();
+				} catch (Exception ig){}
 				throw new IllegalArgumentException("GeoPackage "+dbFile.getName()+" failed integrity checks - Check the source.");
+			}
 			
 		} else {
 			
@@ -226,11 +230,16 @@ public class GeoPackage {
 			// Try setting the application_id pragma through Sqlite implementation
 			if ( !setGpkgAppPragma() ) setGpkgAppHeader();
 			
-			if (!isGPKGValid(true)) 
+			if (!isGPKGValid(true)) {
+				try {
+					close();
+				} catch (Exception ig){}
 				throw new IllegalArgumentException("GeoPackage "+dbFile.getName()+" failed integrity checks - Check the source.");
+			}
 			
 		}
 		
+		close();
 		log.log(Level.INFO, "Connected to GeoPackage "+dbFile.getName());
 	}
 	/** Get the name of the database file associated with this GeoPackage
@@ -364,7 +373,11 @@ public class GeoPackage {
 				continue;
 			}
 		}
-		
+		boolean pass = (isGPKG || MODE_STRICT==false) && integrity && !foreignKey && tabsExist;
+		if (!pass) {
+			String s = String.format("Gpkg: %s, Int: %s, FK: %s Tables: %s", isGPKG, integrity, foreignKey, tabsExist);
+			log.log(Level.SEVERE, s);
+		}
 		return (isGPKG || MODE_STRICT==false) && integrity && !foreignKey && tabsExist;
 		
 	}
@@ -632,7 +645,7 @@ public class GeoPackage {
 		}
 
 		/* Query all records in the feature table and check the header envelope
-		 * for matchin/ intersecting bounds. If the envelope is null, then the full
+		 * for matching/ intersecting bounds. If the envelope is null, then the full
 		 * geometry is read and checked */
 		
 		sqlStmt.append("SELECT * FROM [").append(tableName).append("] WHERE id IN(");
@@ -686,7 +699,7 @@ public class GeoPackage {
 			if (hasRecords==false) break;
 		}
 
-		log.log(Level.INFO, recCount+" geometries checked in "+(System.currentTimeMillis()-startTime)/1000+" seconds");
+		//log.log(Level.INFO, recCount+" geometries checked in "+(System.currentTimeMillis()-startTime)/1000+" seconds");
 		
 		
 		// Didn't find anything
@@ -695,6 +708,7 @@ public class GeoPackage {
 		sqlStmt.setLength(sqlStmt.length()-1);// How many id's can the DB handle??
 		sqlStmt.append(");");
 
+		log.log(Level.INFO, "Found "+hitCount+" features in "+tableName+" - Building SimpleFeature(s)...");
 		return getFeatures(sqlStmt.toString(), featTable, geomDecoder );
 		
 	}
@@ -722,13 +736,7 @@ public class GeoPackage {
 		GeometryInfo geomInfo = featTable.getGeometryInfo();
 		
 		// Find the feature id field
-		String featureFieldName = "";
-		for (GpkgField gf : featTable.getFields() ) {
-			if ( ((FeatureField)gf).isFeatureID() ) {
-				featureFieldName = gf.getFieldName();
-				break;
-			}
-		}
+		String featureFieldName = featTable.getFeatureIDField();
 				
 		/* Query the table in 'pages' of LIMIT number */
 
@@ -767,7 +775,7 @@ public class GeoPackage {
 				attrValues = new ArrayList<Object>();
 				
 				// Get our feature ID or build from primary key
-				if (featureFieldName.equals("")) {
+				if (featureFieldName.equals("id")) {
 					fid = featTable.getTableName()+"."+featRecords.getFieldInt(rIdx, pk);
 				} else {
 					fid = featRecords.getFieldString(rIdx, featureFieldName);
@@ -1325,7 +1333,7 @@ public class GeoPackage {
 	 * @return
 	 * @throws IOException
 	 */
-	private byte[] encodeGeometry(Geometry geom, int outputDimension) throws IOException {
+	public byte[] encodeGeometry(Geometry geom, int outputDimension) throws IOException {
 		if (geom==null) throw new IOException("Null Geometry passed");
 		
 		if (outputDimension < 2 || outputDimension > 3)
@@ -1430,7 +1438,7 @@ public class GeoPackage {
 	public boolean insertOWSContext(String contextDoc, String mimeType, boolean overwrite) {
 		if (contextDoc==null || contextDoc.equals("") || mimeType==null) return false;
 		if (	!mimeType.equalsIgnoreCase("text/xml") &&
-				!mimeType.equalsIgnoreCase("application/xml") &&
+				!mimeType.equalsIgnoreCase("application/atom+xml") &&
 				!mimeType.equalsIgnoreCase("application/json") ) {
 			throw new IllegalArgumentException("Incorrect mimeType specified");
 		}
