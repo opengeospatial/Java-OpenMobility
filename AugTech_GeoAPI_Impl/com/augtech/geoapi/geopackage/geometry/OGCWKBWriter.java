@@ -164,8 +164,7 @@ public class OGCWKBWriter {
 	 * @param os the out stream to write to
 	 * @throws IOException if an I/O error occurs
 	 */
-	public void write(Geometry geom, OutStream os) throws IOException
-	{
+	public void write(Geometry geom, OutStream os) throws IOException {
 		if (geom instanceof Point)
 			writePoint((Point) geom, os);
 		// LinearRings will be written as LineStrings
@@ -264,8 +263,7 @@ public class OGCWKBWriter {
 			writeInt(seq.size(), os);
 
 		boolean output3D = false;
-		if (seq.getDimension() >= 3 && outputDimension >= 3)
-			output3D = true;
+		if (seq.getDimension() >= 3 && outputDimension >= 3) output3D = true;
 
 		for (int i = 0; i < seq.size(); i++) {
 			writeCoordinate(seq, i, output3D, os);
@@ -278,12 +276,14 @@ public class OGCWKBWriter {
 		os.write(buf, 8);
 		ByteOrderValues.putDouble(seq.getY(index), buf, byteOrder);
 		os.write(buf, 8);
+		
 		if (output3D) {
 			// Set NaN values to 0
 			double zm = seq.getOrdinate(index, 2);
 			ByteOrderValues.putDouble(Double.isNaN(zm) ? 0d : zm, buf, byteOrder);
 			os.write(buf, 8);
 		}
+
 	}
 	
 }
