@@ -76,7 +76,8 @@ public class NameImpl implements Name, Cloneable {
 	public String toString() {
 		return getURI();
 	}
-	/** Decode a NameImpl from a qualified name (containing :)<p>
+	/** Create a new NameImpl from the supplied String, which can either be qualified
+	 * with a namespace or not.<p>
 	 * Alternatively use the constructor NameImpl(NameSpace, LocalName)
 	 * 
 	 * @param qName

@@ -17,7 +17,8 @@ import com.augtech.geoapi.geopackage.ICursor;
 import com.augtech.geoapi.geopackage.ISQLDatabase;
 
 /** An implementation of ISQLDatabase for the org.sqlite.JDBC driver.
- * The sqlite-jdbc-3.7.2 library must be added to the end project.
+ * The sqlite-jdbc-3.7.2 library must be added to the end project which can be 
+ * downloaded from <a href=https://bitbucket.org/xerial/sqlite-jdbc">BitBucket</a>
  * 
  * @author Augmented Technologies Ltd.
  *
@@ -45,10 +46,11 @@ public class JSqlLiteDatabase implements com.augtech.geoapi.geopackage.ISQLDatab
 		}
 	    
 	}
-	
+
 	@Override
 	public File getDatabaseFile() {
 		return this.dbFile;
+
 	}
 
 	@Override
@@ -124,7 +126,7 @@ public class JSqlLiteDatabase implements com.augtech.geoapi.geopackage.ISQLDatab
 		getDatabase(true);
 		
 		try {
-			
+
 			Statement statement = connection.createStatement();
 			statement.execute(sql);
 			

@@ -205,7 +205,9 @@ public class GeoPackage {
 			if (!isGPKGValid(false)) {
 				try {
 					close();
-				} catch (Exception ig){}
+				} catch (Exception ig) {
+					ig.printStackTrace();
+				}
 				throw new IllegalArgumentException("GeoPackage "+dbFile.getName()+" failed integrity checks - Check the source.");
 			}
 			
@@ -242,6 +244,7 @@ public class GeoPackage {
 		close();
 		log.log(Level.INFO, "Connected to GeoPackage "+dbFile.getName());
 	}
+
 	/** Get the name of the database file associated with this GeoPackage
 	 * 
 	 * @return
@@ -398,7 +401,7 @@ public class GeoPackage {
 	 * @return
 	 * @throws Exception
 	 */
-	public List<SimpleFeature> getTiles(String tableName, BoundingBox bbox, int zoomLevel) throws Exception {
+	public List<SimpleFeature> getTiles(final String tableName, final BoundingBox bbox, int zoomLevel) throws Exception {
 		log.log(Level.INFO, "BBOX query for images in "+tableName);
 		
 		List<SimpleFeature> allFeats = new ArrayList<SimpleFeature>();
@@ -468,7 +471,7 @@ public class GeoPackage {
 	 * @return A List of {@linkplain SimpleFeature}'s 
 	 * @throws Exception
 	 */
-	public List<SimpleFeature> getTiles(String tableName, String whereClause) throws Exception {
+	public List<SimpleFeature> getTiles(final String tableName, final String whereClause) throws Exception {
 		log.log(Level.INFO, "WHERE query for images in "+tableName);
 		
 		List<SimpleFeature> allFeats = new ArrayList<SimpleFeature>();
@@ -551,7 +554,7 @@ public class GeoPackage {
 	 * @throws Exception If the SRS of the supplied {@link BoundingBox} does not match the SRS of
 	 * the table being queried.
 	 */
-	public List<SimpleFeature> getFeatures(String tableName, BoundingBox bbox) throws Exception {
+	public List<SimpleFeature> getFeatures(final String tableName, final BoundingBox bbox) throws Exception {
 		return getFeatures(tableName, bbox, true, true, new StandardGeometryDecoder() );
 	}
 	/** Get all the features from the supplied table name.<p>
@@ -564,7 +567,7 @@ public class GeoPackage {
 	 * @return
 	 * @throws Exception
 	 */
-	public List<SimpleFeature> getFeatures(String tableName) throws Exception {
+	public List<SimpleFeature> getFeatures(final String tableName) throws Exception {
 		FeaturesTable featTable = (FeaturesTable)getUserTable( tableName, GpkgTable.TABLE_TYPE_FEATURES );
 		return getFeatures("SELECT * FROM ["+tableName+"]", featTable, new StandardGeometryDecoder() );
 	}
@@ -605,7 +608,7 @@ public class GeoPackage {
 	 * @throws Exception If the SRS of the supplied {@link BoundingBox} does not match the SRS of
 	 * the table being queried.
 	 */
-	public List<SimpleFeature> getFeatures(String tableName, BoundingBox bbox, boolean includeIntersect, 
+	public List<SimpleFeature> getFeatures(final String tableName, final BoundingBox bbox, boolean includeIntersect, 
 			boolean testExtents, GeometryDecoder geomDecoder) throws Exception {
 		log.log(Level.INFO, "BBOX query for features in "+tableName);
 		
@@ -1047,7 +1050,7 @@ public class GeoPackage {
 	 *  
 	 * @throws Exception
 	 */
-	public byte[] getTile(String tableName, int x_col, int y_row, int zoom) throws Exception {
+	public byte[] getTile(final String tableName, int x_col, int y_row, int zoom) throws Exception {
 		
 		GpkgRecords recs = new TilesTable(this, tableName).query(this, 
 				String.format("zoom_level=%s AND tile_column=%s AND tile_row=%s", zoom, x_col, y_row)
@@ -1265,6 +1268,7 @@ public class GeoPackage {
 		Object value = null;
 		FeatureField field = null;
 		boolean passConstraint = true;
+		boolean hasGeom = false;
 		
 		// For each field defined in the table...
 		for (GpkgField f : tabFields) {
@@ -1277,7 +1281,7 @@ public class GeoPackage {
 			if ( field.isFeatureID() ) {
 				value = feature.getID();
 			} else {
-				int idx = type.indexOf( field.getFieldName() );
+				int idx = type.indexOf( field.getFieldName().toLowerCase().equals("__id") ? "id" : field.getFieldName() );
 				/* If the field is not available on the type, set to null to ensure
 				 * the value list matches the table definition */
 				if (idx==-1 || idx > type.getAttributeCount()) {
@@ -1296,6 +1300,7 @@ public class GeoPackage {
 			
 			if(passConstraint) {
 				if (value instanceof Geometry) {
+					hasGeom = true;
 					values.put(field.getFieldName(), encodeGeometry( (Geometry)value, geomDimension ) );
 				} else {
 					values.put(field.getFieldName(), value);
@@ -1309,6 +1314,9 @@ public class GeoPackage {
 			}
 			
 		}
+		
+		if (!hasGeom) 
+			throw new IllegalArgumentException("Feature "+feature.getID()+" has no Geomtery defined");
 		
 		return values;
 	}
@@ -1425,22 +1433,29 @@ public class GeoPackage {
 		String where = String.format("table_name='%s' and data_type='%s'", tableName, tableType);
 		getSystemTable(GpkgContents.TABLE_NAME).update(this, values, where);
 	}
+
 	/** Insert an OWS Context document correctly in to the GeoPackage.<p>
 	 * This method only allows for one Context Document within the GeoPackage.
 	 * 
-	 * @param contextDoc Properly formatted document as a String (JSON or XML)
-	 * @param mimeType The encoding of the Context document (JSON or XML)
+	 * @param contextDoc Properly formatted document encoded as a String (either JSON or XML)
+	 * @param mimeType The encoding of the Context document (application/json or application/atom+xml).
+	 * If Null then application/atom+xml is used.
 	 * @param overwrite If <code>True</code> any current record is overwritten. If <code>False</code>
 	 * and there is an existing record then nothing is done and the method will 
 	 * return <code>False</code>.
 	 * @return True if inserted/ updated successfully.
 	 */
 	public boolean insertOWSContext(String contextDoc, String mimeType, boolean overwrite) {
-		if (contextDoc==null || contextDoc.equals("") || mimeType==null) return false;
-		if (	!mimeType.equalsIgnoreCase("text/xml") &&
-				!mimeType.equalsIgnoreCase("application/atom+xml") &&
-				!mimeType.equalsIgnoreCase("application/json") ) {
-			throw new IllegalArgumentException("Incorrect mimeType specified");
+		if (contextDoc==null || contextDoc.equals("")) return false;
+		
+		if (mimeType!=null) {
+			if (	!mimeType.equalsIgnoreCase("text/xml") &&
+					!mimeType.equalsIgnoreCase("application/atom+xml") &&
+					!mimeType.equalsIgnoreCase("application/json") ) {
+				throw new IllegalArgumentException("Incorrect mimeType specified");
+			}
+		} else {
+			mimeType = "application/atom+xml";
 		}
 				
 		// Do we have an existing record?

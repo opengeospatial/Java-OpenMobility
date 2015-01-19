@@ -21,9 +21,9 @@ public class OSMTile {
 			-20037508.34, 20037508.34, -20037508.34, 20037508.34,
 			new CoordinateReferenceSystemImpl("3857"));
 	
-	private static final double OSMOriginShift = 2 * Math.PI * 6378137 / 2.0;
 	public static final double WGS84_EQUATOR = 6378137.0;
 	private static final double WGS84_CONV = 20037508.34;
+	private static final double OSMOriginShift = 2 * Math.PI * WGS84_EQUATOR / 2.0;
 	
 	int xRef;
 	int yRef;
@@ -100,7 +100,7 @@ public class OSMTile {
 	 */
 	public float[] getAsRadius() {
 		BoundingBoxImpl tileBounds = (BoundingBoxImpl) getLatLongBounds();
-		double diam = Math.cos(tileBounds.getMaxY() * Math.PI / 180) * 2 * Math.PI * WGS84_EQUATOR / Math.pow(2, zoom);
+		double diam = Math.cos(tileBounds.getMaxY() * Math.PI / 180f) * 2 * Math.PI * WGS84_EQUATOR / Math.pow(2, zoom);
 		return new float[]{
 				(float) tileBounds.getCenter(0),
 				(float) tileBounds.getCenter(1),
@@ -202,7 +202,7 @@ public class OSMTile {
 	 * @return The X tile number
 	 */
 	public static int getOSMXTile(double lon, int zoom) {
-		return (int)Math.floor( (lon + 180) / 360 * (1<<zoom) );
+		return (int)Math.floor( (lon + 180d) / 360d * (1<<zoom) );
 	}
 	/** Get the Y tile reference for an OSM tile
 	 * 
@@ -220,10 +220,10 @@ public class OSMTile {
 	 * @return
 	 */
 	private static Coordinate osmToWGS84(double x, double y) {
-		  double lon = (x / WGS84_CONV) * 180;
-		  double lat = (y / WGS84_CONV) * 180;
+		  double lon = (x / WGS84_CONV) * 180d;
+		  double lat = (y / WGS84_CONV) * 180d;
 			
-		  lat = 180/Math.PI * (2 * Math.atan(Math.exp(lat * Math.PI / 180)) - Math.PI / 2);
+		  lat = 180d/Math.PI * (2d * Math.atan(Math.exp(lat * Math.PI / 180d)) - Math.PI / 2d);
 
 		  return new Coordinate(lon, lat,0);
 	}
@@ -236,7 +236,7 @@ public class OSMTile {
 	 * @return
 	 */
 	private double[] osmTileToCoords(int tileX, int tileY, int zoom, int tileSize) {
-		double tileRes = (2 * Math.PI * WGS84_EQUATOR) / (tileSize * Math.pow(2,zoom));
+		double tileRes = (2d * Math.PI * WGS84_EQUATOR) / (tileSize * Math.pow(2d,zoom));
 		
 		int tpx = tileX*tileSize+1;
 		int tpy = tileY*tileSize+1;

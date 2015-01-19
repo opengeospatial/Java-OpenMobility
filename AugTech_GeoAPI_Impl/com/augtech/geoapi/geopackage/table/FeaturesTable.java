@@ -201,7 +201,9 @@ public class FeaturesTable extends GpkgTable {
 			}
 			
 			// The insertion text
-			fields.append(", [").append(atName.getLocalPart()).append("] ").append(geoPackage.encodeType( aType.getBinding()) );
+			String fName = atName.getLocalPart();
+			fName = fName.toLowerCase().equals("id") ? "__id" : fName;
+			fields.append(", [").append( fName ).append("] ").append(geoPackage.encodeType( aType.getBinding()) );
 			
 			// Data columns definitions...
 			//table_name, column_name, name, title, description, mime_type, constraint_name
@@ -320,7 +322,7 @@ public class FeaturesTable extends GpkgTable {
 		GeometryInfo geomInfo = getGeometryInfo();
 		GeometryType gType = new GeometryTypeImpl(
 				new NameImpl(geomInfo.getGeometryTypeName()),
-				Geometry.class,
+				Geometry.class, //TODO: This should really decode to point, line, polygon for shape writing to work?
 				new CoordinateReferenceSystemImpl(""+geomInfo.getSrsID()) );
 		GeometryDescriptor gDescr = new GeometryDescriptorImpl( gType, new NameImpl( geomInfo.getColumnName() ) );
 		

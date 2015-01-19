@@ -20,6 +20,8 @@ import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 import org.opengis.feature.GeometryAttribute;
 import org.opengis.feature.IllegalAttributeException;
@@ -216,8 +218,11 @@ public class SimpleFeatureImpl implements SimpleFeature {
 	 */
 	@Override
 	public final void setDefaultGeometry(Object geom) {
-		Name geomName = featureType.getGeometryDescriptor().getName();
-		int idx = featureType.indexOf( geomName );
+		int idx = featureType.indexOf( featureType.getGeometryDescriptor().getName() );
+		if (idx==-1) {
+			Logger.getAnonymousLogger().log(Level.INFO, "Used Geom TYPE name");
+			idx = featureType.indexOf( featureType.getGeometryDescriptor().getType().getName() );
+		}
 		if (idx>-1 && attrValues!=null) {
 			if (attrValues.size()>idx) {
 				attrValues.set(idx, geom);
@@ -232,8 +237,10 @@ public class SimpleFeatureImpl implements SimpleFeature {
 	@Override
 	public final Geometry getDefaultGeometry() {
 		if (attrValues==null) return null;
-		Name geomName = featureType.getGeometryDescriptor().getName();
-		int idx = featureType.indexOf( geomName );
+		int idx = featureType.indexOf( featureType.getGeometryDescriptor().getName() );
+		if (idx==-1) {
+			idx = featureType.indexOf( featureType.getGeometryDescriptor().getType().getName() );
+		}
 		return (Geometry) attrValues.get( idx );
 	}
 

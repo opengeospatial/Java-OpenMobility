@@ -143,17 +143,25 @@ public class SimpleFeatureTypeImpl implements SimpleFeatureType {
 		EXCLUSIVE_TOGGLE,
 		/** Boolean. Allow additional information query? Default is True */
 		ADDITIONAL_INFO,
-		/** The first attribute name to apply a style against (if the value matches) */
-		STYLE_ATTR_1,
-		/** The second attribute name to apply a style against (if the value matches) */
-		STYLE_ATTR_2,
+		/** The name of the first attribute whose value should be use in applying a style to the feature.
+		 * Only applies if the value matches a defined style and the value is not null etc 
+		 * i.e it matches. */
+		STYLE_ATTRIBUTE_NAME_1,
+		/** The name of the second attribute whose value should be use in applying a style to the feature.
+		 * Only applies if the value matches a defined style and the value is not null etc 
+		 * i.e it matches. */
+		STYLE_ATTRIBUTE_NAME_2,
 		/** Any additional server url (specific to this feature type) to append to 
 		 * the root server url */
 		ADD_URL,
 		/** A datasource specifically for this feature type which overrides that on a Dataset */
 		FEATURE_DATASOURCE,
 		/** Should this type be switched on (visible) by default? */
-		DEFAULT_ON
+		DEFAULT_ON,
+		/** Don't show when zoomed out beyond.. (The minimum scale) */
+		MIN_SCALE,
+		/** Don't show when zoomed in beyond.. (The maximum scale) */
+		MAX_SCALE
 	};
 	/** No ID constructor
 	 * 
@@ -166,7 +174,10 @@ public class SimpleFeatureTypeImpl implements SimpleFeatureType {
 	public SimpleFeatureTypeImpl(Name name, List<AttributeType> attributeTypes, GeometryDescriptor defaultGeom) {
 		this(-1, name, attributeTypes, defaultGeom);
 	}
-	/** Creates default userData values and a geometry attribute.
+	/** Creates default userData values.<p>
+	 * The Geometry field <b>is not</b> added by default even when a defaultGeom is provided, 
+	 * therefore ensure it is in the attributeTypes list prior to constructing. defaultGeom
+	 * is used to find the Geometry attribute within setDefaultGeom()
 	 * 
 	 * @param id The FeatureType id
 	 * @param name The name implementation to be used for finding and displaying this type
@@ -191,21 +202,11 @@ public class SimpleFeatureTypeImpl implements SimpleFeatureType {
 		this.attributeTypes = attributeTypes;
 
 	}
-	/**
-    * Walks up the type hierarchy of the feature returning all super types of the specified feature
-    * type. The search terminates when a non-FeatureType or null is found. The original featureType
-    * is not included as an ancestor, only its strict ancestors.
-    */
-   public static List<FeatureType> getAncestors(FeatureType featureType) {
-       List<FeatureType> ancestors = new ArrayList<FeatureType>();
-       while (featureType.getSuper() instanceof FeatureType) {
-           FeatureType superType = (FeatureType) featureType.getSuper();
-           ancestors.add(superType);
-           featureType = superType;
-       }
-       return ancestors;
-   }
-	/** Advanced constructor to allow for the manual creation of a FeatureType. 
+	/** Advanced constructor to allow for the manual creation of a FeatureType.<p>
+	 * 
+	 * The Geometry field <b>is not</b> added by default even when a defaultGeom is provided, 
+	 * therefore ensure it is in the attributeTypes list prior to constructing. defaultGeom
+	 * is used to find the Geometry attribute within setDefaultGeom()
 	 * 
 	 * @param id The FeatureType id. A unique ID for this type (within this type)
 	 * @param name The name implementation to be used for finding and displaying this type
@@ -221,7 +222,20 @@ public class SimpleFeatureTypeImpl implements SimpleFeatureType {
 			this.userdata.putAll(userData);
 		}
 	}
-
+	/**
+    * Walks up the type hierarchy of the feature returning all super types of the specified feature
+    * type. The search terminates when a non-FeatureType or null is found. The original featureType
+    * is not included as an ancestor, only its strict ancestors.
+    */
+   public static List<FeatureType> getAncestors(FeatureType featureType) {
+       List<FeatureType> ancestors = new ArrayList<FeatureType>();
+       while (featureType.getSuper() instanceof FeatureType) {
+           FeatureType superType = (FeatureType) featureType.getSuper();
+           ancestors.add(superType);
+           featureType = superType;
+       }
+       return ancestors;
+   }
 
 	@Override
 	public GeometryDescriptor getGeometryDescriptor() {
