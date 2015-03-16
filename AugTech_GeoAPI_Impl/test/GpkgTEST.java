@@ -17,7 +17,9 @@ package com.augtech.geoapi.geopackage;
 
 import java.io.File;
 import java.io.FileOutputStream;
+import java.io.IOException;
 import java.io.InputStream;
+import java.io.OutputStream;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -46,7 +48,6 @@ import com.augtech.geoapi.geopackage.geometry.StandardGeometryDecoder;
 import com.augtech.geoapi.geopackage.table.FeaturesTable;
 import com.augtech.geoapi.geopackage.table.TilesTable;
 import com.augtech.geoapi.referncing.CoordinateReferenceSystemImpl;
-import com.augtech.geoapi.utils.FileIO;
 
 import com.vividsolutions.jts.geom.Geometry;
 
@@ -190,7 +191,8 @@ public class GpkgTEST {
 		InputStream gmlRes = this.getClass().getResourceAsStream(TEST_GML_FILE);
 		File gmlFile = new File(System.getProperty("java.io.tmpdir"), "tmpGml.gml");
 		if (gmlFile.exists()) gmlFile.delete();
-		FileIO.streamCopy(gmlRes, new FileOutputStream(gmlFile));
+		
+		streamCopy(gmlRes, new FileOutputStream(gmlFile));
 		
 		if (!gmlFile.exists()) return false;
 		
@@ -217,6 +219,21 @@ public class GpkgTEST {
 		log.log(Level.INFO, "Loaded "+merged+" features");
 		return merged > 0;
 	}
+	/**
+	 * 
+	 * @param in
+	 * @param out
+	 * @throws IOException
+	 */
+    static void streamCopy(InputStream in, OutputStream out) throws IOException{
+        byte[] b = new byte[1024];
+        int read;
+        while ((read = in.read(b)) != -1) {
+                out.write(b, 0, read);
+        }
+        out.close();
+        in.close();
+    }
 	/** 
 	 * 
 	 * @param allFeatures

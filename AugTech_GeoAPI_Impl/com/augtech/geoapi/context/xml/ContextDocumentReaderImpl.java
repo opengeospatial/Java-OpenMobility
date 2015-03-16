@@ -23,10 +23,9 @@ import org.opengis.context.Context;
 import org.opengis.context.ContextDocumentReader;
 import org.xml.sax.helpers.XMLFilterImpl;
 
-import com.augtech.geoapi.feature.gml.GMLFilterDocument;
-import com.augtech.geoapi.feature.gml.GMLFilterGeometry;
-import com.augtech.geoapi.feature.gml.GMLHandlerJTS;
-import com.augtech.geoapi.feature.loader.Utils;
+import com.augtech.geoapi.geotools.gml.GMLFilterDocument;
+import com.augtech.geoapi.geotools.gml.GMLFilterGeometry;
+import com.augtech.geoapi.geotools.gml.GMLHandlerJTS;
 import com.vividsolutions.jts.geom.Geometry;
 /** An implementation of {@link ContextDocumentReader} to process
  * an OWS Context document into a {@link Context} implementation using
@@ -52,7 +51,7 @@ public class ContextDocumentReaderImpl implements ContextDocumentReader {
 	 * @throws Exception
 	 */
 	public ContextDocumentReaderImpl(InputStream stream, Set<String> extNameSpaces) throws Exception {
-		inStream = Utils.decompressStream( stream );
+		inStream = stream;
 		GMLFilterGeometry geomHandler = new GMLFilterGeometry( new GeometryHandler() );
 		gmlFilter = new GMLFilterDocument(geomHandler);
 		docFilter = new ContextFilterImpl(this);

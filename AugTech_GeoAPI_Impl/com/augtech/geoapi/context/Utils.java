@@ -17,6 +17,7 @@ package com.augtech.geoapi.context;
 
 import java.io.ByteArrayInputStream;
 import java.io.File;
+import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
@@ -24,12 +25,13 @@ import java.io.OutputStream;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.util.List;
+import java.util.zip.ZipEntry;
+import java.util.zip.ZipInputStream;
 
 import org.opengis.context.Content;
 import org.opengis.context.Offering;
 import org.opengis.context.Operation;
 
-import com.augtech.geoapi.utils.FileIO;
 import com.augtech.geoapi.utils.WebRequest;
 
 /** A few utilities to aid processing Context Document information
@@ -212,7 +214,7 @@ public class Utils {
 
 				/* Could be a zip file containing multiple files (i.e shape), so decompress
 				 * and get the first file matching our extension */
-				FileIO.unZipArchive( localFile.toString(), directory.toString() );
+				unZipArchive( localFile.toString(), directory.toString() );
 				localFile = getFirstFile(directory, ext);
 
 				System.out.println("getContextContent: Got local file "+String.valueOf(localFile) );
@@ -250,4 +252,51 @@ public class Utils {
         in.close();
     }
 	
+	/** Un-zip all files in an archive to the supplied folder
+	 * 
+	 * @param zipFile
+	 * @param outputFolder
+	 */
+	static void unZipArchive(String zipFile, String outputFolder) {
+
+		byte[] buffer = new byte[BUFFER];
+
+		try{
+
+			//create output directory is not exists
+			File folder = new File(outputFolder);
+			if(!folder.exists()) folder.mkdirs();
+
+			//get the zip file content
+			ZipInputStream zis = new ZipInputStream(new FileInputStream(zipFile));
+			//get the zipped file list entry
+			ZipEntry ze = zis.getNextEntry();
+
+			while(ze!=null){
+
+				String fileName = ze.getName();
+				File newFile = new File(outputFolder + File.separator + fileName);
+
+				//create all non exists folders
+				//else you will hit FileNotFoundException for compressed folder
+				new File(newFile.getParent()).mkdirs();
+
+				FileOutputStream fos = new FileOutputStream(newFile);             
+
+				int len;
+				while ((len = zis.read(buffer)) > 0) {
+					fos.write(buffer, 0, len);
+				}
+
+				fos.close();   
+				ze = zis.getNextEntry();
+			}
+
+			zis.closeEntry();
+			zis.close();
+
+		} catch(IOException ex){
+			ex.printStackTrace(); 
+		}
+	}
 }

@@ -21,7 +21,6 @@ import org.opengis.referencing.crs.CoordinateReferenceSystem;
 import org.opengis.referencing.operation.TransformException;
 
 import com.augtech.geoapi.referncing.CoordinateReferenceSystemImpl;
-import com.augtech.geoapi.utils.ProjectionUtils;
 import com.vividsolutions.jts.geom.Coordinate;
 import com.vividsolutions.jts.geom.Envelope;
 import com.vividsolutions.jts.geom.Geometry;
@@ -324,11 +323,15 @@ public class BoundingBoxImpl extends Envelope implements BoundingBox {
 	@Override
 	public BoundingBox toBounds(CoordinateReferenceSystem crs)
 			throws TransformException {
+		/*TODO: Implement mechanism for checking ProjectionUtils class exists?
+		 * This method is not used by GeoPackage or Context */
 		try {
-			return ProjectionUtils.reproject(this, crs.getName().getCodeSpace() + ":" + crs.getName().getCode() );
+			//return ProjectionUtils.reproject(this, crs.getName().getCodeSpace() + ":" + crs.getName().getCode() );
 		} catch (Exception e) {
 			throw new TransformException(e.getLocalizedMessage());
 		}
+		
+		return null;
 	}
 
 
@@ -336,6 +339,8 @@ public class BoundingBoxImpl extends Envelope implements BoundingBox {
 	public String toString() {
 		return super.toString();
 	}
+
+
 
 	
 }
