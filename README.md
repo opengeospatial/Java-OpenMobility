@@ -7,7 +7,7 @@ The 'library' code enables the creation, insertion, query and update of records 
 
 This project includes an Android application for testing and demonstrational purposes. The test layer utilises functions from our own library that extends the GeoAPI functionality for loading and processing GML and tiles in to SimpleFeature's.(<a href="http://www.awila.co.uk/dev_doc/geoapi_doc/index.html">GeoAPI Impl. Javadoc</a>)<p>
 
-The GeoPackage source cannot be used stand-alone; You will require the <a href="http://www.vividsolutions.com/jts/JTSHome.htm">Java Topology Suite</a> v1.8, the OpenGIS .jar from <a href="http://sourceforge.net/projects/geotools/files/">GeoTools as well as apache http client utils. These are all included in the /libs/ folder.
+The GeoPackage source cannot be used stand-alone; You will require the <a href="http://www.vividsolutions.com/jts/JTSHome.htm">Java Topology Suite</a> v1.8, the OpenGIS .jar from <a href="http://sourceforge.net/projects/geotools/files/">GeoTools</a> as well as apache http client utils. These are all included in the /libs/ folder.
 <p>
 
 Note that the Android project includes a re-compiled version of JTS as we found issues running the original .jar on Android - no other changes have been made.
