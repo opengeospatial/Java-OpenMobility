@@ -20,8 +20,6 @@ import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.logging.Level;
-import java.util.logging.Logger;
 
 import org.opengis.feature.GeometryAttribute;
 import org.opengis.feature.IllegalAttributeException;
@@ -54,6 +52,7 @@ public class SimpleFeatureImpl implements SimpleFeature {
 	protected SimpleFeatureType featureType;
 	protected boolean allAttrsPresent = false;
 	protected BoundingBox bounds = null;
+	protected Geometry defaultGeom = null;
 
 	/** Create a new SimpleFeature implementation
 	 * 
@@ -61,10 +60,12 @@ public class SimpleFeatureImpl implements SimpleFeature {
 	 * @param attrValues The list of attribute values for this feature. Can be Null
 	 * if the values list is to be added afterwards.
 	 * @param fType The {@link SimpleFeatureType} this feature belongs to
+	 * @param defaultGeom The feature's geometry. This is no longer maintained in the attribute list
 	 */
-	public SimpleFeatureImpl(String fid, List<Object> attrValues, SimpleFeatureType fType) {
+	public SimpleFeatureImpl(String fid, List<Object> attrValues, SimpleFeatureType fType, Geometry defaultGeom) {
 		featureID = fid;
 		featureType = fType;
+		this.defaultGeom = defaultGeom;
 		if (attrValues!=null) this.attrValues = attrValues;
 
 	}
@@ -154,11 +155,7 @@ public class SimpleFeatureImpl implements SimpleFeature {
 		if (name==null) return null;
 		int idx = featureType.indexOf(name);
 		if (attrValues!=null && idx>-1) {
-			try {
-				return attrValues.get( idx );
-			} catch (IndexOutOfBoundsException e) {
-				return null;
-			}
+			return attrValues.get( idx );
 		} else {
 			return null;
 		}
@@ -173,11 +170,7 @@ public class SimpleFeatureImpl implements SimpleFeature {
 		if (name==null || attrValues==null) return null;
 		int idx = featureType.indexOf(name);
 		if (idx>-1) {
-			try {
-				return attrValues.get( idx );
-			} catch (IndexOutOfBoundsException e) {
-				return null;
-			}
+			return attrValues.get( idx );
 		} else {
 			return null;
 		}
@@ -218,30 +211,35 @@ public class SimpleFeatureImpl implements SimpleFeature {
 	 */
 	@Override
 	public final void setDefaultGeometry(Object geom) {
-		int idx = featureType.indexOf( featureType.getGeometryDescriptor().getName() );
-		if (idx==-1) {
-			Logger.getAnonymousLogger().log(Level.INFO, "Used Geom TYPE name");
-			idx = featureType.indexOf( featureType.getGeometryDescriptor().getType().getName() );
-		}
-		if (idx>-1 && attrValues!=null) {
-			if (attrValues.size()>idx) {
-				attrValues.set(idx, geom);
-			} else {
-				for (int i=attrValues.size(); i<idx+1; i++) {// Is this supposed to be attrTypes??
-					attrValues.add(null);
-				}
-				attrValues.set(idx, geom);
-			}
-		}
+		defaultGeom = (Geometry)geom;
+		// 26/03/15 - Switch to static geom attribute
+//		int idx = featureType.indexOf( featureType.getGeometryDescriptor().getName() );
+//		if (idx==-1) {
+//			Logger.getAnonymousLogger().log(Level.INFO, "Used Geom TYPE name");
+//			idx = featureType.indexOf( featureType.getGeometryDescriptor().getType().getName() );
+//		}
+//		if (idx>-1 && attrValues!=null) {
+//			if (attrValues.size()>idx) {
+//				attrValues.set(idx, geom);
+//			} else {
+//				for (int i=attrValues.size(); i<idx+1; i++) {// Is this supposed to be attrTypes??
+//					attrValues.add(null);
+//				}
+//				attrValues.set(idx, geom);
+//			}
+//		}
 	}
 	@Override
 	public final Geometry getDefaultGeometry() {
-		if (attrValues==null) return null;
-		int idx = featureType.indexOf( featureType.getGeometryDescriptor().getName() );
-		if (idx==-1) {
-			idx = featureType.indexOf( featureType.getGeometryDescriptor().getType().getName() );
-		}
-		return (Geometry) attrValues.get( idx );
+		// 26/03/15 - Switch to static geom attribute
+		return defaultGeom;
+		
+//		if (attrValues==null) return null;
+//		int idx = featureType.indexOf( featureType.getGeometryDescriptor().getName() );
+//		if (idx==-1) {
+//			idx = featureType.indexOf( featureType.getGeometryDescriptor().getType().getName() );
+//		}
+//		return (Geometry) attrValues.get( idx );
 	}
 
 	@Override

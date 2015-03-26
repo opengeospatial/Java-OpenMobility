@@ -69,7 +69,7 @@ public class WebRequest extends HashMap<String, Object> {
 		StringBuffer sb = new StringBuffer();
 		sb.append(this.SERVER_URL.replace(" ", "%20"));
 		int i=0;
-		for (Entry<String, Object> tmp : this.entrySet()) {
+		for (java.util.Map.Entry<String, Object> tmp : this.entrySet()) {
 			if (i==0 && this.SERVER_URL.contains("?")==false) {
 				sb.append("?");
 			} else {

@@ -166,9 +166,7 @@ public class SimpleFeatureTypeImpl implements SimpleFeatureType {
 	/** No ID constructor
 	 * 
 	 * @param name The name of the FeatureType
-	 * @param attributeTypes A list of AttributeType's to retrieve from the server/ load
-	 * by default. If null then only the geometry attribute is created (as is required by all features).
-	 * If not null, the geometry attribute <i>must be</i> in the attribute list provided. 
+	 * @param attributeTypes A list of AttributeType's each feature of this type must/ will hold.
 	 * @param defaultGeom Descriptor of the Geometry field
 	 */
 	public SimpleFeatureTypeImpl(Name name, List<AttributeType> attributeTypes, GeometryDescriptor defaultGeom) {
@@ -181,9 +179,7 @@ public class SimpleFeatureTypeImpl implements SimpleFeatureType {
 	 * 
 	 * @param id The FeatureType id
 	 * @param name The name implementation to be used for finding and displaying this type
-	 * @param attributeTypes A list of AttributeType's to retrieve from the server/ load
-	 * by default. If null then only the geometry attribute is created (as is required by all features).
-	 * If not null, the geometry attribute <i>must be</i> in the attribute list provided.
+	 * @param attributeTypes A list of AttributeType's each feature of this type must/ will hold.
 	 * @param defaultGeom Descriptor of the Geometry field
 	 */
 	public SimpleFeatureTypeImpl(int id, Name name, List<AttributeType> attributeTypes, GeometryDescriptor defaultGeom) {
@@ -191,15 +187,16 @@ public class SimpleFeatureTypeImpl implements SimpleFeatureType {
 		this.name = (NameImpl)name;
 		this.defaultGeometry = defaultGeom;
 
-		// Ensure we have a geometry definition in the attribute list
-
 		/* 17/09/13 - Changed if empty list don't add default geom (for new GML2/3 parsing),
 		 * but if null initialise with an empty list and add the geometry definition */
+		/* 26/03/15 - Changed so Geometry is no longer a part of the attribute type list */
 		if (attributeTypes==null) {
-			attributeTypes = new ArrayList<AttributeType>();
-			attributeTypes.add( defaultGeometry.getType() );
+			this.attributeTypes = new ArrayList<AttributeType>();
+		} else {
+			this.attributeTypes = attributeTypes;
 		}
-		this.attributeTypes = attributeTypes;
+
+		
 
 	}
 	/** Advanced constructor to allow for the manual creation of a FeatureType.<p>
@@ -210,8 +207,7 @@ public class SimpleFeatureTypeImpl implements SimpleFeatureType {
 	 * 
 	 * @param id The FeatureType id. A unique ID for this type (within this type)
 	 * @param name The name implementation to be used for finding and displaying this type
-	 * @param attributeTypes A list of AttributeType's to retrieve from the server/ load
-	 * by default. If null then only the geometry attribute is created (as is required by all features)
+	 * @param attributeTypes  A list of AttributeType's each feature of this type must/ will hold.
 	 * @param defaultGeom Descriptor of the Geometry field
 	 * @param userData A set of USER_xxx settings to override the default values
 	 */
@@ -336,10 +332,8 @@ public class SimpleFeatureTypeImpl implements SimpleFeatureType {
 	 * otherwise they are replaced with the new set
 	 */
 	public void addAttributeTypes(List<AttributeType> newTypes, boolean overwrite) {
-		if (newTypes==null) {
-			int p=0;
-			p++;
-		}
+		if (newTypes==null) return;
+
 		// If our list is blank, copy them all
 		if (attributeTypes==null || overwrite==true) {
 			attributeTypes = newTypes;

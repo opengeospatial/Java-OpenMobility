@@ -101,6 +101,7 @@ public class GMLFilterFeature extends XMLFilterImpl implements GMLHandlerJTS {
 
     /** Geometry type for feature */
     GeometryDescriptor geomDescriptor = null;
+    Geometry featGeom = null;
     
     /** Collects string chunks in {@link #characters(char[], int, int)} 
      * callback to be handled at the beggining of {@link #endElement(String, String, String)}
@@ -119,7 +120,7 @@ public class GMLFilterFeature extends XMLFilterImpl implements GMLHandlerJTS {
 
     public void setSchema(String uri) {
     }
-
+    
     /**
      * Manages the start of a new main or sub geometry.  This method looks at
      * the status of the current handler and either returns a new sub-handler
@@ -132,8 +133,12 @@ public class GMLFilterFeature extends XMLFilterImpl implements GMLHandlerJTS {
     public void geometry(Geometry geometry) {
         if (insideFeature) {
         	geomDescriptor = SimpleFeatureTypeImpl.getDefaultGeometryDescriptor(geometry);
+        	/* 20/03/15 - Removed geometry as member of attribute list
         	attrNames.add( new AttributeTypeImpl(geomDescriptor.getName(), Geometry.class) );
         	attrValues.add( geometry );
+        	*/
+        	featGeom = geometry;
+
             endAttribute();
         }
     }
@@ -301,13 +306,14 @@ public class GMLFilterFeature extends XMLFilterImpl implements GMLHandlerJTS {
         			NameImpl.getNameImpl(typeQName), 
         			attrNames,
         			geomDescriptor);
-        	SimpleFeature feat = new SimpleFeatureImpl(fid, attrValues, fType);
+        	SimpleFeature feat = new SimpleFeatureImpl(fid, attrValues, fType, featGeom);
 
         	parent.feature( feat );
 
             attName = "";
             insideFeature = false;
-            
+            featGeom = null;
+            		
         } else if (insideAttribute) {
         	
             //_log.debug("end - inside attribute [" + tempValue + "]");

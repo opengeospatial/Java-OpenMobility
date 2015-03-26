@@ -502,13 +502,13 @@ public class GeoPackage {
 			attrValues.add( featRecords.getFieldBlob(rIdx, "tile_data") );
 			
 			// Construct bounding box for tile
-			BoundingBox bbox = tmi.getTileBounds(
+			Geometry bbox = tmi.getTileBounds(
 					featRecords.getFieldInt(rIdx, "tile_column"),
 					featRecords.getFieldInt(rIdx, "tile_row"),
 					featRecords.getFieldInt(rIdx, "zoom_level")
 					);
-			attrValues.add( bbox );
-			
+			//attrValues.add( bbox );
+
 			// Tile details
 			attrValues.add( featRecords.getFieldInt(rIdx, "tile_column") );
 			attrValues.add( featRecords.getFieldInt(rIdx, "tile_row") );
@@ -524,7 +524,7 @@ public class GeoPackage {
 					);
 			
 			// Create the feature and add to list of all features
-			allFeats.add( new SimpleFeatureImpl(fid, attrValues, featureType ) );
+			allFeats.add( new SimpleFeatureImpl(fid, attrValues, featureType, bbox ) );
 		}
 		
 		return allFeats;
@@ -784,6 +784,8 @@ public class GeoPackage {
 					fid = featRecords.getFieldString(rIdx, featureFieldName);
 				}
 				
+				Geometry theGeom = null;
+				
 				/* For each type definition, get the value, ensuring the 
 				 * correct order is maintained on the value list*/
 				for (int typeIdx=0; typeIdx < attrTypes.size(); typeIdx++) {
@@ -792,19 +794,17 @@ public class GeoPackage {
 					value = featRecords.get(rIdx).get( featRecords.getFieldIdx(fieldName) );
 					
 					if (fieldName.equals(geomInfo.getColumnName())) {
-						
 						// If geometry column, decode to actual Geometry
-						value = geomDecoder.setGeometryData( (byte[])value ).getGeometry();
-						
+						theGeom = geomDecoder.setGeometryData( (byte[])value ).getGeometry();
+					} else {
+						attrValues.add(value);
 					}
-					
-					attrValues.add(value);
 					
 				}
 				attrValues.trimToSize();
 
 				// Create the feature and add to list of all features
-				allFeats.add( new SimpleFeatureImpl(fid, attrValues, featureType ) );
+				allFeats.add( new SimpleFeatureImpl(fid, attrValues, featureType, theGeom ) );
 
 				// Store the last key we saw for the next page query
 				lastPK = featRecords.getFieldInt(rIdx, pk );
@@ -1279,8 +1279,17 @@ public class GeoPackage {
 			
 			// If defined as feature id, use getID, else find the attribute
 			if ( field.isFeatureID() ) {
+				
 				value = feature.getID();
+				
+			} else if (field.getFieldType().equals(GpkgTable.FIELD_TYPE_GEOMETRY)) {
+				
+				values.put(field.getFieldName(), encodeGeometry( (Geometry)feature.getDefaultGeometry(), geomDimension ) );
+				hasGeom = true;
+				continue;
+				
 			} else {
+				
 				int idx = type.indexOf( field.getFieldName().toLowerCase().equals("__id") ? "id" : field.getFieldName() );
 				/* If the field is not available on the type, set to null to ensure
 				 * the value list matches the table definition */
@@ -1289,6 +1298,7 @@ public class GeoPackage {
 				} else {
 					value = feature.getAttribute(idx);
 				}
+				
 			}
 
 			passConstraint = true;
@@ -1298,13 +1308,13 @@ public class GeoPackage {
 				passConstraint = field.getConstraint().isValueValid( value );
 			}
 			
-			if(passConstraint) {
-				if (value instanceof Geometry) {
-					hasGeom = true;
-					values.put(field.getFieldName(), encodeGeometry( (Geometry)value, geomDimension ) );
-				} else {
+			if (passConstraint) {
+//				if (value instanceof Geometry) {
+//					hasGeom = true;
+//					values.put(field.getFieldName(), encodeGeometry( (Geometry)value, geomDimension ) );
+//				} else {
 					values.put(field.getFieldName(), value);
-				}
+//				}
 			} else {
 				if (MODE_STRICT) {
 					throw new IllegalArgumentException("Field "+field.getFieldName()+" did not pass constraint check");

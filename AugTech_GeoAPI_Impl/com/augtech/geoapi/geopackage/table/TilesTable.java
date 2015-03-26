@@ -362,7 +362,8 @@ public class TilesTable extends GpkgTable {
 			
 			return ret;
 		}
-		/** Get the {@linkplain BoundingBox} of a single tile
+		/** Get the {@linkplain BoundingBox} of a single tile as a JTS 
+		 * Polygon Geomerty
 		 * 
 		 * @param x X tile reference (column)
 		 * @param y Y tile reference (row)
@@ -370,11 +371,11 @@ public class TilesTable extends GpkgTable {
 		 * @return A new Bounding box in the tile matrix CoordinateReferenceSystem or an
 		 * empty BoundingBox if the zoom, x or y references are outside the bounds of this matrix
 		 */
-		public BoundingBox getTileBounds(int x, int y, int zoom) {
+		public Geometry getTileBounds(int x, int y, int zoom) {
 			
 			int[] mXY = getMatrixSize( zoom );
 			if (x>mXY[0] || x<1 || y>mXY[1] || y<1)
-				return new BoundingBoxImpl(bbox.getCoordinateReferenceSystem());
+				return new BoundingBoxImpl(bbox.getCoordinateReferenceSystem()).toPolygon();
 			
 			double[] pXY = getPixelSize( zoom );
 			int[] tXY = getTileSize( zoom );
@@ -385,7 +386,7 @@ public class TilesTable extends GpkgTable {
 					bbox.getMaxY()-( pXY[1]*tXY[1]*y ),
 					bbox.getMaxY()-( pXY[1]*tXY[1]*(y+1) ),
 					bbox.getCoordinateReferenceSystem()
-					);
+					).toPolygon();
 		}
 	}
 }

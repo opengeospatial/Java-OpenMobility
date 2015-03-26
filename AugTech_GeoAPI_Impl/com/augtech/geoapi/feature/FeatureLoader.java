@@ -31,14 +31,19 @@ import org.opengis.feature.type.Name;
 
 import com.augtech.geoapi.geopackage.GeoPackage;
 
-/** An abstract class for loading and creating {@link SimpleFeature} from local storage, once 
- * they have been downloaded from the server. This class processes saved data in to a 
- * list of{@link SimpleFeature} to pass onto the Dataset FeatureCollection.
+/** An abstract class for loading and creating {@link SimpleFeature} from local storage,  
+ * potentially after they have been downloaded from a server. This class processes saved data in to a 
+ * list of{@link SimpleFeature}'s essentially creating a simple feature collection.
+ * 
  * <br>It is the responsibility of the implementor to handle
  * reading of features and of additional query type (getFeatureInfo) requests via the 
- * the {@link #loadFeatures(InputStream)} method.<p>
- * Sub-class should use either a default blank constructor, or one with a Map
- * to ensure they are instantiated correctly.
+ * the {@link #loadFeatures(File, SimpleFeatureType)} method.<p>
+ * 
+ * Sub-classes should use either a default blank constructor, or one with a Map
+ * to ensure they are instantiated correctly.<p>
+ * 
+ * If the {@link #FeatureLoader(GeoPackage)} constructor is used, the loaded features
+ * are automatically added to the GeoPackage for a file backed feature collection.
  */
 public abstract class FeatureLoader extends ArrayList<SimpleFeature> {
 	private static final long serialVersionUID = 4264941226040642321L;

@@ -18,7 +18,6 @@ package com.augtech.geoapi.context.xml;
 import java.io.FilterInputStream;
 import java.io.IOException;
 import java.io.InputStream;
-import java.util.StringTokenizer;
 
 import org.opengis.context.ContextFilter;
 

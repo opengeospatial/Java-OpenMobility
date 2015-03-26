@@ -231,8 +231,8 @@ public class FeaturesTable extends GpkgTable {
 		
 		// Create table
 		String tableDef = String.format(
-				"CREATE TABLE [%s] (id INTEGER PRIMARY KEY AUTOINCREMENT, [%s] GEOMETRY %s);",
-				tableName, geomDescriptor.getLocalName(), fields.toString() );
+				"CREATE TABLE [%s] (id INTEGER PRIMARY KEY AUTOINCREMENT, [%s] %s %s);",
+				tableName, geomDescriptor.getLocalName(), GpkgTable.FIELD_TYPE_GEOMETRY, fields.toString() );
 
 		// Geometry columns
 		raw = 	"INSERT INTO gpkg_geometry_columns (table_name, column_name, geometry_type_name, srs_id, z, m) "+
@@ -322,7 +322,7 @@ public class FeaturesTable extends GpkgTable {
 		GeometryInfo geomInfo = getGeometryInfo();
 		GeometryType gType = new GeometryTypeImpl(
 				new NameImpl(geomInfo.getGeometryTypeName()),
-				Geometry.class, //TODO: This should really decode to point, line, polygon for shape writing to work?
+				Geometry.class,
 				new CoordinateReferenceSystemImpl(""+geomInfo.getSrsID()) );
 		GeometryDescriptor gDescr = new GeometryDescriptorImpl( gType, new NameImpl( geomInfo.getColumnName() ) );
 		

@@ -45,7 +45,8 @@ import com.augtech.geoapi.referncing.CoordinateReferenceSystemImpl;
  *
  */
 public abstract class GpkgTable {
-
+	/** The designated data type for a field holding geometry */
+	public static final String FIELD_TYPE_GEOMETRY = "GEOMETRY";
 	/** The data_type of a user defined table in gpkg_contents */
 	public static final String TABLE_TYPE_FEATURES = "features";
 	/** The data_type of a user defined table in gpkg_contents */
